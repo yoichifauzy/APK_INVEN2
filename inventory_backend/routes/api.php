@@ -23,6 +23,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/request-barang', [RequestBarangController::class, 'store']);
     Route::get('/request-barang', [RequestBarangController::class, 'index']);
+    // allow owners to update or delete their pending requests
+    Route::put('/request-barang/{id}', [RequestBarangController::class, 'update']);
+    Route::delete('/request-barang/{id}', [RequestBarangController::class, 'destroy']);
     Route::put('/request-barang/{id}/status', [RequestBarangController::class, 'updateStatus']);
 
     Route::post('/barang-keluar', [BarangKeluarController::class, 'store']);
@@ -48,6 +51,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Category management
     Route::get('/categories', [\App\Http\Controllers\API\KategoriController::class, 'index']);
+    Route::post('/categories', [\App\Http\Controllers\API\KategoriController::class, 'store']);
+    Route::put('/categories/{id}', [\App\Http\Controllers\API\KategoriController::class, 'update']);
+    Route::delete('/categories/{id}', [\App\Http\Controllers\API\KategoriController::class, 'destroy']);
 
     // Barang (items) management
     Route::get('/items', [\App\Http\Controllers\API\BarangController::class, 'index']);

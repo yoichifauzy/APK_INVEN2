@@ -200,12 +200,26 @@ class _RequestsPageState extends State<RequestsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       drawer: const RoleDrawer(),
-      appBar: AppBar(title: const Text('Admin — Pending Requests')),
+      appBar: AppBar(
+        title: const Text('Admin — Pending Requests'),
+        backgroundColor: Colors.teal.shade700,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
+              color: Colors.teal.shade700,
               child: ListView.builder(
                 itemCount: _requests.length,
                 itemBuilder: (ctx, i) {

@@ -19,6 +19,7 @@ import 'screens/staff/profile_page.dart';
 import 'screens/staff/account_settings_page.dart';
 import 'screens/dashboards/supplier_dashboard.dart';
 import 'screens/admin/profile_page.dart';
+import 'screens/admin/categories_page.dart';
 import 'screens/admin/suppliers_page.dart';
 import 'screens/admin/items_page.dart';
 import 'screens/admin/masuk_page.dart';
@@ -81,6 +82,7 @@ class MyApp extends StatelessWidget {
         '/admin/users': (context) => const UsersPage(),
         '/admin/suppliers': (context) => const SuppliersPage(),
         '/admin/items': (context) => const ItemsPage(),
+        '/admin/categories': (context) => const CategoriesPage(),
         '/admin/masuk': (context) => const BarangMasukPage(),
         '/admin/keluar': (context) => const BarangKeluarPage(),
         '/admin/reports': (context) => const ReportsPage(),
@@ -89,7 +91,7 @@ class MyApp extends StatelessWidget {
         '/admin/profile': (context) => const AdminProfilePage(),
         '/staff/profile': (context) => const StaffProfilePage(),
         '/staff/account': (context) => const StaffAccountSettingsPage(),
-        '/staff/tracking': (context) => const StaffTrackingPage(),
+        '/staff/tracking': (context) => const TrackingPage(),
         '/staff/riwayat': (context) => const RiwayatPermintaanPage(),
         '/manager/requests': (context) => const ManagerRequestsPage(),
         '/manager/laporan': (context) => const ManagerLaporanPage(),

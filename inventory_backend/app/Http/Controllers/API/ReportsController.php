@@ -18,6 +18,39 @@ class ReportsController extends Controller
         $type = $request->query('type', 'stock');
         $format = $request->query('format', 'json');
 
+        // normalize some common plural/synonym parameters coming from frontend
+        $typeMap = [
+            'requests' => 'request',
+            'request' => 'request',
+            'stock' => 'stock',
+            'masuk' => 'masuk',
+            'keluar' => 'keluar',
+        ];
+        if (isset($typeMap[strtolower($type)])) {
+            $type = $typeMap[strtolower($type)];
+        }
+
+        // map some client format names to internal handlers
+        $formatMap = [
+            'xlsx' => 'excel', // serve CSV compatible for Excel
+            'csv' => 'csv',
+            'excel' => 'excel',
+            'pdf' => 'html', // return printable HTML as fallback for PDF
+            'html' => 'html',
+            'json' => 'json',
+        ];
+        $forcedExt = null;
+        if (isset($formatMap[strtolower($format)])) {
+            // keep original requested format for filename extension when appropriate
+            if (strtolower($format) === 'pdf') {
+                $forcedExt = '.pdf';
+            }
+            if (strtolower($format) === 'xlsx') {
+                $forcedExt = '.xlsx';
+            }
+            $format = $formatMap[strtolower($format)];
+        }
+
         // filters
         $from = $request->query('from');
         $to = $request->query('to');
@@ -46,11 +79,14 @@ class ReportsController extends Controller
                 return (array) $r;
             })->toArray();
 
-            return $this->output($rows, $format, 'laporan_stok');
+            return $this->output($rows, $format, 'laporan_stok', $forcedExt);
         }
 
         if ($type === 'request') {
-            $query = RequestBarang::with(['user', 'barang'])->orderBy('tanggal_request', 'desc');
+            $query = RequestBarang::query()->orderBy('tanggal_request', 'desc');
+            // safe eager-load only relations that exist on the model
+            $rels = $this->availableRelations($query->getModel(), ['user', 'barang']);
+            if (!empty($rels)) $query = $query->with($rels);
             if ($from) $query->whereDate('tanggal_request', '>=', $from);
             if ($to) $query->whereDate('tanggal_request', '<=', $to);
             if ($category) $query->where('id_barang', function ($q) use ($category) {
@@ -67,11 +103,13 @@ class ReportsController extends Controller
                 ];
             })->toArray();
 
-            return $this->output($rows, $format, 'laporan_request');
+            return $this->output($rows, $format, 'laporan_request', $forcedExt);
         }
 
         if ($type === 'masuk') {
-            $query = BarangMasuk::with(['barang', 'supplier', 'operator'])->orderBy('tanggal_masuk', 'desc');
+            $query = BarangMasuk::query()->orderBy('tanggal_masuk', 'desc');
+            $rels = $this->availableRelations($query->getModel(), ['barang', 'supplier', 'operator']);
+            if (!empty($rels)) $query = $query->with($rels);
             if ($from) $query->whereDate('tanggal_masuk', '>=', $from);
             if ($to) $query->whereDate('tanggal_masuk', '<=', $to);
             if ($category) $query->whereHas('barang', function ($q) use ($category) {
@@ -90,11 +128,13 @@ class ReportsController extends Controller
                 ];
             })->toArray();
 
-            return $this->output($rows, $format, 'laporan_masuk');
+            return $this->output($rows, $format, 'laporan_masuk', $forcedExt);
         }
 
         // keluar
-        $query = BarangKeluar::with(['barang', 'request', 'operator'])->orderBy('tanggal_keluar', 'desc');
+        $query = BarangKeluar::query()->orderBy('tanggal_keluar', 'desc');
+        $rels = $this->availableRelations($query->getModel(), ['barang', 'request', 'operator']);
+        if (!empty($rels)) $query = $query->with($rels);
         if ($from) $query->whereDate('tanggal_keluar', '>=', $from);
         if ($to) $query->whereDate('tanggal_keluar', '<=', $to);
         if ($category) $query->whereHas('barang', function ($q) use ($category) {
@@ -119,7 +159,22 @@ class ReportsController extends Controller
             ];
         })->toArray();
 
-        return $this->output($rows, $format, 'laporan_keluar');
+        return $this->output($rows, $format, 'laporan_keluar', $forcedExt);
+    }
+
+    /**
+     * Return subset of relations that actually exist on the model to avoid
+     * RelationNotFoundException when eager-loading.
+     */
+    protected function availableRelations($model, array $relations)
+    {
+        $out = [];
+        foreach ($relations as $r) {
+            if (method_exists($model, $r) && is_callable([$model, $r])) {
+                $out[] = $r;
+            }
+        }
+        return $out;
     }
 
     /**
@@ -149,14 +204,14 @@ class ReportsController extends Controller
         return response()->json($data);
     }
 
-    protected function output(array $rows, string $format, string $basename)
+    protected function output(array $rows, string $format, string $basename, ?string $forcedExt = null)
     {
         if ($format === 'json') {
             return response()->json($rows);
         }
 
         if ($format === 'csv' || $format === 'excel') {
-            $filename = $basename . '.csv';
+            $filename = $basename . ($forcedExt ?? '.csv');
             $callback = function () use ($rows) {
                 $out = fopen('php://output', 'w');
                 if (count($rows) === 0) {
@@ -192,7 +247,7 @@ class ReportsController extends Controller
         }
         $html .= '</body></html>';
 
-        $filename = $basename . '.html';
+        $filename = $basename . ($forcedExt ?? '.html');
         $callback = function () use ($html) {
             echo $html;
         };

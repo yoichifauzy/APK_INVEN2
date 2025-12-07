@@ -100,4 +100,46 @@ class RequestBarangController extends Controller
 
         return response()->json(['message' => 'Status request diperbarui', 'data' => $requestBarang]);
     }
+
+    // allow owner to update their pending request (qty, tanggal_request, keterangan)
+    public function update(Request $request, $id)
+    {
+        $me = $request->user();
+        $requestBarang = RequestBarang::findOrFail($id);
+
+        if ($requestBarang->id_user !== $me->id) {
+            return response()->json(['message' => 'Unauthorized - only owner can update this request'], 403);
+        }
+        if ($requestBarang->status !== 'pending') {
+            return response()->json(['message' => 'Only pending requests can be updated'], 422);
+        }
+
+        $validated = $request->validate([
+            'qty' => 'sometimes|numeric|min:1',
+            'tanggal_request' => 'sometimes|date',
+            'keterangan' => 'sometimes|string|nullable',
+        ]);
+
+        $requestBarang->fill($validated);
+        $requestBarang->save();
+
+        return response()->json(['message' => 'Request diperbarui', 'data' => $requestBarang]);
+    }
+
+    // allow owner to delete their pending request
+    public function destroy(Request $request, $id)
+    {
+        $me = $request->user();
+        $requestBarang = RequestBarang::findOrFail($id);
+
+        if ($requestBarang->id_user !== $me->id) {
+            return response()->json(['message' => 'Unauthorized - only owner can delete this request'], 403);
+        }
+        if ($requestBarang->status !== 'pending') {
+            return response()->json(['message' => 'Only pending requests can be deleted'], 422);
+        }
+
+        $requestBarang->delete();
+        return response()->json(['message' => 'Request dihapus']);
+    }
 }

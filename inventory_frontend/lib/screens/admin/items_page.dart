@@ -28,8 +28,34 @@ class _ItemsPageState extends State<ItemsPage> {
     final items = await auth.getItems();
     final suppliers = await auth.getSuppliers();
     final categories = await auth.getCategories();
+    // build lookup maps for names
+    final Map<dynamic, String> supplierNames = {};
+    for (var s in suppliers) {
+      supplierNames[s['id']] = (s['nama_supplier'] ?? s['name'] ?? '')
+          .toString();
+    }
+    final Map<dynamic, String> categoryNames = {};
+    for (var c in categories) {
+      categoryNames[c['id']] = (c['nama_kategori'] ?? c['name'] ?? '')
+          .toString();
+    }
+
+    // enrich items with supplier_name and category_name if not provided by API
+    final enriched = items.map<Map<String, dynamic>>((it) {
+      final m = Map<String, dynamic>.from(it);
+      if (m['supplier_name'] == null) {
+        final sid = m['id_supplier'] ?? m['supplier_id'] ?? m['supplier'];
+        if (sid != null) m['supplier_name'] = supplierNames[sid] ?? '';
+      }
+      if (m['category_name'] == null) {
+        final cid = m['id_kategori'] ?? m['category_id'] ?? m['kategori'];
+        if (cid != null) m['category_name'] = categoryNames[cid] ?? '';
+      }
+      return m;
+    }).toList();
+
     setState(() {
-      _items = items;
+      _items = enriched;
       _suppliers = suppliers;
       _categories = categories;
       _loading = false;

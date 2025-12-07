@@ -359,6 +359,62 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<bool> createCategory(Map<String, dynamic> payload) async {
+    try {
+      final url = _apiUrl('/categories');
+      final res = await http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode(payload),
+      );
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        lastError = null;
+        return true;
+      }
+      lastError = _formatResponseError('Create category', res);
+      return false;
+    } catch (e) {
+      lastError = _formatNetworkError(e);
+      return false;
+    }
+  }
+
+  Future<bool> updateCategory(int id, Map<String, dynamic> payload) async {
+    try {
+      final url = _apiUrl('/categories/$id');
+      final res = await http.put(
+        url,
+        headers: _headers,
+        body: jsonEncode(payload),
+      );
+      if (res.statusCode == 200) {
+        lastError = null;
+        return true;
+      }
+      lastError = _formatResponseError('Update category', res);
+      return false;
+    } catch (e) {
+      lastError = _formatNetworkError(e);
+      return false;
+    }
+  }
+
+  Future<bool> deleteCategory(int id) async {
+    try {
+      final url = _apiUrl('/categories/$id');
+      final res = await http.delete(url, headers: _headers);
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        lastError = null;
+        return true;
+      }
+      lastError = _formatResponseError('Delete category', res);
+      return false;
+    } catch (e) {
+      lastError = _formatNetworkError(e);
+      return false;
+    }
+  }
+
   Future<bool> updateSupplier(int id, Map<String, dynamic> payload) async {
     try {
       final url = _apiUrl('/suppliers/$id');
@@ -591,6 +647,42 @@ class AuthService extends ChangeNotifier {
         return true;
       }
       lastError = _formatResponseError('Create request', res);
+      return false;
+    } catch (e) {
+      lastError = _formatNetworkError(e);
+      return false;
+    }
+  }
+
+  Future<bool> updateRequest(int id, Map<String, dynamic> payload) async {
+    try {
+      final url = _apiUrl('/request-barang/$id');
+      final res = await http.put(
+        url,
+        headers: _headers,
+        body: jsonEncode(payload),
+      );
+      if (res.statusCode == 200) {
+        lastError = null;
+        return true;
+      }
+      lastError = _formatResponseError('Update request', res);
+      return false;
+    } catch (e) {
+      lastError = _formatNetworkError(e);
+      return false;
+    }
+  }
+
+  Future<bool> deleteRequest(int id) async {
+    try {
+      final url = _apiUrl('/request-barang/$id');
+      final res = await http.delete(url, headers: _headers);
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        lastError = null;
+        return true;
+      }
+      lastError = _formatResponseError('Delete request', res);
       return false;
     } catch (e) {
       lastError = _formatNetworkError(e);
