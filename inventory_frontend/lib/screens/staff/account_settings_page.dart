@@ -209,43 +209,7 @@ class _StaffAccountSettingsPageState extends State<StaffAccountSettingsPage> {
                                   ),
                                   child: const Text('Simpan'),
                                 ),
-                                const SizedBox(width: 12),
-                                OutlinedButton(
-                                  onPressed: () async {
-                                    final auth = Provider.of<AuthService>(
-                                      context,
-                                      listen: false,
-                                    );
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (c) => AlertDialog(
-                                        title: const Text('Logout'),
-                                        content: const Text(
-                                          'Apakah anda ingin logout?',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(c, false),
-                                            child: const Text('Batal'),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () =>
-                                                Navigator.pop(c, true),
-                                            child: const Text('Ya, Logout'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirm != true) return;
-                                    await auth.logout();
-                                    Navigator.pushReplacementNamed(
-                                      context,
-                                      '/',
-                                    );
-                                  },
-                                  child: const Text('Logout'),
-                                ),
+                                // Logout removed from settings page per request
                               ],
                             ),
                           ],

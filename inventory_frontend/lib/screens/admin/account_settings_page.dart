@@ -217,21 +217,7 @@ class _AdminAccountSettingsPageState extends State<AdminAccountSettingsPage> {
                                   ),
                                   child: const Text('Simpan'),
                                 ),
-                                const SizedBox(width: 12),
-                                OutlinedButton(
-                                  onPressed: () async {
-                                    final auth = Provider.of<AuthService>(
-                                      context,
-                                      listen: false,
-                                    );
-                                    await auth.logout();
-                                    Navigator.pushReplacementNamed(
-                                      context,
-                                      '/',
-                                    );
-                                  },
-                                  child: const Text('Logout'),
-                                ),
+                                // Logout button removed from settings page
                               ],
                             ),
                           ],
