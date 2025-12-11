@@ -344,9 +344,9 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
     }
   }
 
-  @override
-  @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthService>(context);
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -417,6 +417,9 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                           }
                         }
                         final status = (e['status'] ?? 'pending').toString();
+                        final isAdminOrManager =
+                            auth.user?.hasRole('admin') == true ||
+                            auth.user?.hasRole('manager') == true;
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
@@ -479,6 +482,115 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                               children: [
                                 _statusChip(status),
                                 const SizedBox(width: 8),
+                                if (isAdminOrManager &&
+                                    status == 'pending') ...[
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.check_circle_outline,
+                                      color: Colors.green,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'Approve',
+                                    onPressed: () async {
+                                      final ok = await auth.approveBarangKeluar(
+                                        e['id'] is int
+                                            ? e['id']
+                                            : int.parse(e['id'].toString()),
+                                      );
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            ok
+                                                ? 'Barang keluar berhasil di-approve'
+                                                : auth.lastError ??
+                                                      'Gagal approve barang keluar',
+                                          ),
+                                          backgroundColor: ok
+                                              ? Colors.green.shade600
+                                              : Colors.red.shade600,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                      if (ok) await _loadAll();
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.cancel_outlined,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'Reject',
+                                    onPressed: () async {
+                                      String reason = '';
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (c) {
+                                          return AlertDialog(
+                                            title: const Text(
+                                              'Tolak Barang Keluar',
+                                            ),
+                                            content: TextField(
+                                              decoration: const InputDecoration(
+                                                labelText: 'Alasan penolakan',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              onChanged: (v) => reason = v,
+                                              maxLines: 3,
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(c, false),
+                                                child: const Text('Batal'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(c, true),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.red.shade600,
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                                child: const Text('Tolak'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                      if (confirmed != true) return;
+
+                                      final ok = await auth.rejectBarangKeluar(
+                                        e['id'] is int
+                                            ? e['id']
+                                            : int.parse(e['id'].toString()),
+                                        reason: reason.isEmpty ? null : reason,
+                                      );
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            ok
+                                                ? 'Barang keluar berhasil ditolak'
+                                                : auth.lastError ??
+                                                      'Gagal menolak barang keluar',
+                                          ),
+                                          backgroundColor: ok
+                                              ? Colors.green.shade600
+                                              : Colors.red.shade600,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                      if (ok) await _loadAll();
+                                    },
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
                                 PopupMenuButton<String>(
                                   icon: Icon(
                                     Icons.more_vert,
@@ -491,6 +603,97 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                                       return await _showEditDialog(e);
                                     if (v == 'delete')
                                       return await _deleteEntry(e);
+                                    if (v == 'approve') {
+                                      final ok = await auth.approveBarangKeluar(
+                                        e['id'] is int
+                                            ? e['id']
+                                            : int.parse(e['id'].toString()),
+                                      );
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            ok
+                                                ? 'Barang keluar berhasil di-approve'
+                                                : auth.lastError ??
+                                                      'Gagal approve barang keluar',
+                                          ),
+                                          backgroundColor: ok
+                                              ? Colors.green.shade600
+                                              : Colors.red.shade600,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                      if (ok) await _loadAll();
+                                      return;
+                                    }
+                                    if (v == 'reject') {
+                                      String reason = '';
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (c) {
+                                          return AlertDialog(
+                                            title: const Text(
+                                              'Tolak Barang Keluar',
+                                            ),
+                                            content: TextField(
+                                              decoration: const InputDecoration(
+                                                labelText: 'Alasan penolakan',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              onChanged: (v) => reason = v,
+                                              maxLines: 3,
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(c, false),
+                                                child: const Text('Batal'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(c, true),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.red.shade600,
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                                child: const Text('Tolak'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                      if (confirmed != true) return;
+
+                                      final ok = await auth.rejectBarangKeluar(
+                                        e['id'] is int
+                                            ? e['id']
+                                            : int.parse(e['id'].toString()),
+                                        reason: reason.isEmpty ? null : reason,
+                                      );
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            ok
+                                                ? 'Barang keluar berhasil ditolak'
+                                                : auth.lastError ??
+                                                      'Gagal menolak barang keluar',
+                                          ),
+                                          backgroundColor: ok
+                                              ? Colors.green.shade600
+                                              : Colors.red.shade600,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                      if (ok) await _loadAll();
+                                      return;
+                                    }
                                     if (v == 'print') {
                                       if (!mounted) return;
                                       ScaffoldMessenger.of(
@@ -523,8 +726,8 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                                     }
                                   },
                                   itemBuilder: (c) {
-                                    return const [
-                                      PopupMenuItem(
+                                    final List<PopupMenuEntry<String>> items = [
+                                      const PopupMenuItem(
                                         value: 'view',
                                         child: Row(
                                           children: [
@@ -534,31 +737,7 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                                           ],
                                         ),
                                       ),
-                                      PopupMenuItem(
-                                        value: 'edit',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.edit, size: 20),
-                                            SizedBox(width: 8),
-                                            Text('Edit'),
-                                          ],
-                                        ),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'delete',
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.delete,
-                                              size: 20,
-                                              color: Colors.red,
-                                            ),
-                                            SizedBox(width: 8),
-                                            Text('Delete'),
-                                          ],
-                                        ),
-                                      ),
-                                      PopupMenuItem(
+                                      const PopupMenuItem(
                                         value: 'print',
                                         child: Row(
                                           children: [
@@ -568,7 +747,7 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                                           ],
                                         ),
                                       ),
-                                      PopupMenuItem(
+                                      const PopupMenuItem(
                                         value: 'export',
                                         child: Row(
                                           children: [
@@ -579,6 +758,74 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                                         ),
                                       ),
                                     ];
+
+                                    final isAdminOrManager =
+                                        auth.user?.hasRole('admin') == true ||
+                                        auth.user?.hasRole('manager') == true;
+
+                                    if (isAdminOrManager) {
+                                      items.insertAll(1, [
+                                        const PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit, size: 20),
+                                              SizedBox(width: 8),
+                                              Text('Edit'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.delete,
+                                                size: 20,
+                                                color: Colors.red,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text('Delete'),
+                                            ],
+                                          ),
+                                        ),
+                                      ]);
+
+                                      if (status == 'pending') {
+                                        items.insertAll(1, [
+                                          const PopupMenuItem(
+                                            value: 'approve',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.check_circle_outline,
+                                                  size: 20,
+                                                  color: Colors.green,
+                                                ),
+                                                SizedBox(width: 8),
+                                                Text('Approve'),
+                                              ],
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'reject',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.cancel_outlined,
+                                                  size: 20,
+                                                  color: Colors.red,
+                                                ),
+                                                SizedBox(width: 8),
+                                                Text('Reject'),
+                                              ],
+                                            ),
+                                          ),
+                                        ]);
+                                      }
+                                    }
+
+                                    return items;
                                   },
                                 ),
                               ],
@@ -588,8 +835,7 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                       },
                     ),
             ),
-      floatingActionButton:
-          Provider.of<AuthService>(context).user?.hasRole('admin') == true
+      floatingActionButton: auth.user?.hasRole('admin') == true
           ? FloatingActionButton(
               onPressed: () async {
                 // Quick create dialog for demo

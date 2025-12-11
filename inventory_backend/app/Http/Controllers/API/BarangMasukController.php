@@ -72,7 +72,9 @@ class BarangMasukController extends Controller
     public function approve(Request $request, $id)
     {
         $me = $request->user();
-        if (!$me || ($me->role ?? '') !== 'admin') return response()->json(['message' => 'Unauthorized'], 403);
+        if (!$me || !in_array(($me->role ?? ''), ['admin', 'manager'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
 
         $rec = BarangMasuk::find($id);
         if (!$rec) return response()->json(['message' => 'Not found'], 404);
@@ -111,7 +113,9 @@ class BarangMasukController extends Controller
     public function reject(Request $request, $id)
     {
         $me = $request->user();
-        if (!$me || ($me->role ?? '') !== 'admin') return response()->json(['message' => 'Unauthorized'], 403);
+        if (!$me || !in_array(($me->role ?? ''), ['admin', 'manager'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
 
         $rec = BarangMasuk::find($id);
         if (!$rec) return response()->json(['message' => 'Not found'], 404);

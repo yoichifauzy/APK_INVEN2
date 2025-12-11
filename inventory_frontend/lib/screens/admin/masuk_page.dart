@@ -350,6 +350,11 @@ class _BarangMasukPageState extends State<BarangMasukPage> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthService>(context);
+    final isAdminOrManager =
+        auth.user?.hasRole('admin') == true ||
+        auth.user?.hasRole('manager') == true;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       drawer: const RoleDrawer(),
@@ -483,7 +488,114 @@ class _BarangMasukPageState extends State<BarangMasukPage> {
                             ),
                         ],
                       ),
-                      trailing: _statusChip(status),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _statusChip(status),
+                          if (isAdminOrManager && status == 'pending') ...[
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.check_circle_outline,
+                                color: Colors.green,
+                                size: 20,
+                              ),
+                              tooltip: 'Approve',
+                              onPressed: () async {
+                                final id = e['id'] is int
+                                    ? e['id'] as int
+                                    : int.parse(e['id'].toString());
+                                final ok = await auth.approveBarangMasuk(id);
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok
+                                          ? 'Barang masuk berhasil di-approve'
+                                          : auth.lastError ??
+                                                'Gagal approve barang masuk',
+                                    ),
+                                    backgroundColor: ok
+                                        ? Colors.green.shade600
+                                        : Colors.red.shade600,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                if (ok) await _loadAll();
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.cancel_outlined,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              tooltip: 'Reject',
+                              onPressed: () async {
+                                String reason = '';
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (c) {
+                                    return AlertDialog(
+                                      title: const Text('Tolak Barang Masuk'),
+                                      content: TextField(
+                                        decoration: const InputDecoration(
+                                          labelText: 'Alasan penolakan',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                        onChanged: (v) => reason = v,
+                                        maxLines: 3,
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(c, false),
+                                          child: const Text('Batal'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () =>
+                                              Navigator.pop(c, true),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                Colors.red.shade600,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          child: const Text('Tolak'),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                                if (confirmed != true) return;
+
+                                final id = e['id'] is int
+                                    ? e['id'] as int
+                                    : int.parse(e['id'].toString());
+                                final ok = await auth.rejectBarangMasuk(
+                                  id,
+                                  reason: reason.isEmpty ? null : reason,
+                                );
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok
+                                          ? 'Barang masuk berhasil ditolak'
+                                          : auth.lastError ??
+                                                'Gagal menolak barang masuk',
+                                    ),
+                                    backgroundColor: ok
+                                        ? Colors.green.shade600
+                                        : Colors.red.shade600,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                if (ok) await _loadAll();
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   );
                 },

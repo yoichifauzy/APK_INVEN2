@@ -7,7 +7,11 @@ plugins {
 
 android {
     namespace = "com.example.inventory_frontend"
-    compileSdk = flutter.compileSdkVersion
+
+    // Compile against Android SDK 36 to match plugins
+    compileSdk = 36
+    // Biarkan build tools dipilih otomatis oleh AGP
+
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -20,21 +24,22 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.inventory_frontend"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Pakai keystore debug bawaan untuk sementara
             signingConfig = signingConfigs.getByName("debug")
+
+            // Matikan shrink/minify supaya R8 tidak dijalankan,
+            // menghindari error "Missing classes" dari anotasi pihak ketiga.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

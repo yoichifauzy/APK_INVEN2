@@ -48,7 +48,10 @@ class RequestBarangController extends Controller
 
     public function index()
     {
-        $rows = RequestBarang::with(['user', 'barang'])->orderBy('tanggal_request', 'desc')->get();
+        $rows = RequestBarang::with(['user', 'barang'])
+            ->orderBy('tanggal_request', 'desc')
+            ->orderByDesc('created_at')
+            ->get();
 
         $data = $rows->map(function ($r) {
             return [
@@ -67,6 +70,7 @@ class RequestBarangController extends Controller
                 'qty' => $r->qty,
                 'status' => $r->status,
                 'tanggal_request' => $r->tanggal_request,
+                'keterangan' => $r->keterangan,
                 'alasan_penolakan' => $r->alasan_penolakan ?? null,
                 'approved_by' => $r->approved_by ?? null,
                 'tanggal_approve' => $r->tanggal_approve ?? null,

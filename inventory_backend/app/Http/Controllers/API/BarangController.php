@@ -16,7 +16,9 @@ class BarangController extends Controller
         $me = $request->user();
         if (!$me) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $items = Barang::with('supplier')->get();
+        $items = Barang::with('supplier')
+            ->orderByDesc('created_at')
+            ->get();
         // map to friendly keys
         $data = $items->map(function ($i) {
             return [

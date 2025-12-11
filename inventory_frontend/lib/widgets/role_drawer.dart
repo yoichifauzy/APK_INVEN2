@@ -208,6 +208,28 @@ class RoleDrawer extends StatelessWidget {
           ),
           _buildMenuItem(
             context: context,
+            title: 'Data Barang Masuk',
+            icon: Icons.download,
+            routeName: '/admin/masuk',
+            isActive: _isCurrentRoute(context, '/admin/masuk'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/admin/masuk');
+            },
+          ),
+          _buildMenuItem(
+            context: context,
+            title: 'Data Barang Keluar',
+            icon: Icons.upload,
+            routeName: '/admin/keluar',
+            isActive: _isCurrentRoute(context, '/admin/keluar'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/admin/keluar');
+            },
+          ),
+          _buildMenuItem(
+            context: context,
             title: 'Profile',
             icon: Icons.person,
             routeName: '/admin/profile',

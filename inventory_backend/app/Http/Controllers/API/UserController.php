@@ -18,7 +18,9 @@ class UserController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $users = User::select('id', 'nama', 'email', 'role', 'created_at')->get();
+        $users = User::select('id', 'nama', 'email', 'role', 'created_at')
+            ->orderByDesc('created_at')
+            ->get();
         return response()->json($users);
     }
 

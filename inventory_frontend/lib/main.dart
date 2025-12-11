@@ -41,12 +41,11 @@ void main() async {
 
   // configure baseUrl automatically depending on platform/emulator
   String getDefaultBaseUrl() {
-    // Web uses localhost
+    // Web uses 34.101.195.103
     if (kIsWeb) return 'http://127.0.0.1:8000';
-    // Android emulator needs 10.0.2.2 to reach host machine.
-    // Desktop (Windows/Mac/Linux) and iOS simulator can use localhost.
+    // Android (emulator and device) uses 34.101.195.103
     try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:8000';
+      if (Platform.isAndroid) return 'http://127.0.0.1:8000';
       // iOS simulator and desktop use localhost
       return 'http://127.0.0.1:8000';
     } catch (e) {

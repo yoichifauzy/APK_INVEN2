@@ -940,7 +940,7 @@ class _RequestsListState extends State<RequestsList> {
                                         DataColumn(label: Text('Qty')),
                                         DataColumn(label: Text('Tanggal')),
                                         DataColumn(label: Text('Status')),
-                                        DataColumn(label: Text('Keterangan')),
+                                        // Keterangan column intentionally hidden in wide table per UI request
                                       ],
                                       rows: List<DataRow>.generate(
                                         _visibleRequests.length,
@@ -969,22 +969,7 @@ class _RequestsListState extends State<RequestsList> {
                                                   r['status']?.toString(),
                                                 ),
                                               ),
-                                              DataCell(
-                                                ConstrainedBox(
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                        maxWidth: 300,
-                                                      ),
-                                                  child: Text(
-                                                    r['keterangan']
-                                                            ?.toString() ??
-                                                        '-',
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ),
+                                              // keterangan column intentionally omitted from wide table
                                             ],
                                           );
                                         },

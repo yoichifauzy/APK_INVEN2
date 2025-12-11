@@ -112,11 +112,21 @@ class AuthService extends ChangeNotifier {
   Future<bool> login(String email, String password) async {
     try {
       final url = _apiUrl('/login');
-      final res = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
-      );
+      print('🔐 LOGIN: URL = $url, baseUrl = $baseUrl');
+      final res = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(
+            Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception(
+                'Request timeout - server tidak merespons dalam 10 detik',
+              );
+            },
+          );
       if (res.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(res.body);
         // expected response: { token: '...', user: { ... } }
@@ -152,6 +162,17 @@ class AuthService extends ChangeNotifier {
         lastError = null;
         return true;
       }
+
+      // For authentication errors prefer the server-provided message (email not found / password wrong)
+      if (res.statusCode == 401 || res.statusCode == 404) {
+        try {
+          lastError = _extractMessage(res.body);
+        } catch (_) {
+          lastError = _formatResponseError('Login', res);
+        }
+        return false;
+      }
+
       lastError = _formatResponseError('Login', res);
       return false;
     } catch (e) {
@@ -837,6 +858,42 @@ class AuthService extends ChangeNotifier {
         return true;
       }
       lastError = _formatResponseError('Delete barang keluar', res);
+      return false;
+    } catch (e) {
+      lastError = _formatNetworkError(e);
+      return false;
+    }
+  }
+
+  Future<bool> approveBarangKeluar(int id) async {
+    try {
+      final url = _apiUrl('/barang-keluar/$id/approve');
+      final res = await http.patch(url, headers: _headers);
+      if (res.statusCode == 200) {
+        lastError = null;
+        return true;
+      }
+      lastError = _formatResponseError('Approve barang keluar', res);
+      return false;
+    } catch (e) {
+      lastError = _formatNetworkError(e);
+      return false;
+    }
+  }
+
+  Future<bool> rejectBarangKeluar(int id, {String? reason}) async {
+    try {
+      final url = _apiUrl('/barang-keluar/$id/reject');
+      final res = await http.patch(
+        url,
+        headers: _headers,
+        body: jsonEncode({'reason': reason}),
+      );
+      if (res.statusCode == 200) {
+        lastError = null;
+        return true;
+      }
+      lastError = _formatResponseError('Reject barang keluar', res);
       return false;
     } catch (e) {
       lastError = _formatNetworkError(e);

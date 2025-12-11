@@ -33,6 +33,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/barang-keluar/{id}', [BarangKeluarController::class, 'update']);
     Route::delete('/barang-keluar/{id}', [BarangKeluarController::class, 'destroy']);
     Route::post('/barang-keluar/process-request/{id}', [BarangKeluarController::class, 'processRequest']);
+    Route::patch('/barang-keluar/{id}/approve', [BarangKeluarController::class, 'approve']);
+    Route::patch('/barang-keluar/{id}/reject', [BarangKeluarController::class, 'reject']);
 
     Route::get('/tracking', [TrackingController::class, 'tracking']);
 

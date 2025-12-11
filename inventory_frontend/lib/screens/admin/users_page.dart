@@ -195,8 +195,8 @@ class _UsersPageState extends State<UsersPage> {
                                           child: Text('operator'),
                                         ),
                                         DropdownMenuItem(
-                                          value: 'manajer',
-                                          child: Text('manajer'),
+                                          value: 'manager',
+                                          child: Text('Manajer'),
                                         ),
                                         DropdownMenuItem(
                                           value: 'karyawan',
@@ -400,7 +400,7 @@ class _UsersPageState extends State<UsersPage> {
                         return Colors.teal.shade100;
                       case 'operator':
                         return Colors.blue.shade100;
-                      case 'manajer':
+                      case 'manager':
                         return Colors.orange.shade100;
                       default:
                         return Colors.grey.shade200;

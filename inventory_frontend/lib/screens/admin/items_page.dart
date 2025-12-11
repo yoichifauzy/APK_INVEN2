@@ -317,6 +317,8 @@ class _ItemsPageState extends State<ItemsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthService>(context);
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       drawer: const RoleDrawer(),
@@ -437,20 +439,22 @@ class _ItemsPageState extends State<ItemsPage> {
                         children: [
                           _stockChip(stok),
                           const SizedBox(width: 8),
-                          IconButton(
-                            icon: Icon(
-                              Icons.edit_outlined,
-                              color: Colors.blue.shade600,
+                          if (auth.user?.hasRole('operator') != true) ...[
+                            IconButton(
+                              icon: Icon(
+                                Icons.edit_outlined,
+                                color: Colors.blue.shade600,
+                              ),
+                              onPressed: () => _showItemDialog(item: it),
                             ),
-                            onPressed: () => _showItemDialog(item: it),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.delete_outlined,
-                              color: Colors.red.shade600,
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outlined,
+                                color: Colors.red.shade600,
+                              ),
+                              onPressed: () => _deleteItem(it),
                             ),
-                            onPressed: () => _deleteItem(it),
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -458,12 +462,14 @@ class _ItemsPageState extends State<ItemsPage> {
                 },
               ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showItemDialog(),
-        backgroundColor: Colors.teal.shade700,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: (auth.user?.hasRole('operator') == true)
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _showItemDialog(),
+              backgroundColor: Colors.teal.shade700,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+            ),
     );
   }
 }

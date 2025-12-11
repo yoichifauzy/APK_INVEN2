@@ -14,7 +14,9 @@ class SupplierController extends Controller
         $me = $request->user();
         if (!$me) return response()->json(['message' => 'Unauthorized'], 403);
 
-        $suppliers = Supplier::select('id', 'nama_supplier', 'kontak', 'alamat', 'created_at')->get();
+        $suppliers = Supplier::select('id', 'nama_supplier', 'kontak', 'alamat', 'created_at')
+            ->orderByDesc('created_at')
+            ->get();
         return response()->json($suppliers);
     }
 

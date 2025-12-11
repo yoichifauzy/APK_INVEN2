@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BarangKeluar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB as FacadeDB;
+use Carbon\Carbon;
 
 class BarangKeluarController extends Controller
 {
@@ -35,7 +36,10 @@ class BarangKeluarController extends Controller
 
     public function index()
     {
-        $rows = BarangKeluar::with(['operator', 'barang', 'request'])->get();
+        $rows = BarangKeluar::with(['operator', 'barang', 'request'])
+            ->orderByDesc('tanggal_keluar')
+            ->orderByDesc('created_at')
+            ->get();
         // map to friendlier structure for frontend
         return $rows->map(function ($r) {
             return [
@@ -62,6 +66,11 @@ class BarangKeluarController extends Controller
 
     public function update(Request $request, $id)
     {
+        $me = $request->user();
+        if (! $me || ! in_array(($me->role ?? ''), ['admin', 'manager'])) {
+            return response()->json(['message' => 'Unauthorized - only admin/manager can update barang keluar'], 403);
+        }
+
         $record = BarangKeluar::find($id);
         if (! $record) return response()->json(['message' => 'Not found'], 404);
 
@@ -85,6 +94,50 @@ class BarangKeluarController extends Controller
         if (! $record) return response()->json(['message' => 'Not found'], 404);
         $record->delete();
         return response()->json(['message' => 'Deleted']);
+    }
+
+    public function approve(Request $request, $id)
+    {
+        $me = $request->user();
+        if (! $me || ! in_array(($me->role ?? ''), ['admin', 'manager'])) {
+            return response()->json(['message' => 'Unauthorized - only admin/manager can approve barang keluar'], 403);
+        }
+
+        $record = BarangKeluar::find($id);
+        if (! $record) return response()->json(['message' => 'Not found'], 404);
+        if (($record->status ?? 'pending') !== 'pending') {
+            return response()->json(['message' => 'Only pending records can be approved'], 422);
+        }
+
+        $record->status = 'approved';
+        $record->approved_by = $me->id;
+        $record->approved_at = Carbon::now();
+        $record->save();
+
+        return response()->json(['message' => 'Approved', 'data' => $record]);
+    }
+
+    public function reject(Request $request, $id)
+    {
+        $me = $request->user();
+        if (! $me || ! in_array(($me->role ?? ''), ['admin', 'manager'])) {
+            return response()->json(['message' => 'Unauthorized - only admin/manager can reject barang keluar'], 403);
+        }
+
+        $record = BarangKeluar::find($id);
+        if (! $record) return response()->json(['message' => 'Not found'], 404);
+        if (($record->status ?? 'pending') !== 'pending') {
+            return response()->json(['message' => 'Only pending records can be rejected'], 422);
+        }
+
+        $reason = $request->input('reason');
+        $record->status = 'rejected';
+        $record->rejected_by = $me->id;
+        $record->rejected_at = Carbon::now();
+        $record->reject_reason = $reason;
+        $record->save();
+
+        return response()->json(['message' => 'Rejected', 'data' => $record]);
     }
 
     /**
