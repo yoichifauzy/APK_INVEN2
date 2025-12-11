@@ -42,10 +42,10 @@ void main() async {
   // configure baseUrl automatically depending on platform/emulator
   String getDefaultBaseUrl() {
     // Web uses 34.101.195.103
-    if (kIsWeb) return 'http://127.0.0.1:8000';
+    if (kIsWeb) return 'http://34.101.195.103';
     // Android (emulator and device) uses 34.101.195.103
     try {
-      if (Platform.isAndroid) return 'http://127.0.0.1:8000';
+      if (Platform.isAndroid) return 'http://34.101.195.103';
       // iOS simulator and desktop use localhost
       return 'http://127.0.0.1:8000';
     } catch (e) {

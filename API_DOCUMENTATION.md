@@ -1,7 +1,6 @@
 # 📚 Dokumentasi API Inventory System
 
-**Base URL:** `http://34.34.217.136/api`
-**Base URL:** `{{BASE_URL}}` (contoh: `https://api.example.com`)
+**Base URL:** `http://34.101.195.103/api`
 
 ---
 
@@ -10,6 +9,22 @@
 Inventory System API menyediakan sekumpulan endpoint untuk mengelola aset dan stok barang secara terpusat. Fitur utama meliputi autentikasi (token), manajemen pengguna, manajemen item dan kategori, supplier, transaksi barang masuk/keluar, permintaan barang, dan laporan. Semua request/response menggunakan format JSON dan endpoint yang dilindungi memerlukan header otorisasi.
 
 Gunakan collection Postman bernama "Inventory System API" untuk mengelompokkan request: Authentication, Users, Items, Categories, Suppliers, Incoming/Outgoing, Requests, dan Reports.
+
+---
+
+## 🔁 Recent API Changes (Update)
+
+- Added approve/reject endpoints for outgoing goods:
+  - `PATCH /api/barang-keluar/{id}/approve`
+  - `PATCH /api/barang-keluar/{id}/reject`
+    These allow `admin` and `manager` roles to approve or reject pending `barang-keluar` records.
+- `barang-masuk` approve/reject now permitted for both `admin` and `manager` roles (previously admin-only).
+- Authentication responses clarified:
+  - `POST /api/login` returns `404` with `"Email tidak ditemukan"` when email is not registered, and `401` with `"Password salah"` when password is incorrect. Frontend surfaces these messages for clearer UX.
+- Several listing endpoints were adjusted to return newest records first (e.g. request, barang-masuk, barang-keluar, items, users, suppliers) to ensure latest data appears at the top in UIs.
+- Migration added: `add_approval_fields_to_barang_keluar_table` — adds approval metadata columns (`approved_by`, `approved_at`, `rejected_by`, `rejected_at`, `reject_reason`) for `barang_keluar`.
+
+Note: If you prefer a single generic authentication error (to avoid disclosing whether an email exists), revert to returning a generic 401 message for login failures.
 
 ---
 
@@ -869,20 +884,27 @@ Authorization: Bearer {token}
 
 ### 2️⃣3️⃣ **POST /barang-masuk** - Create Barang Masuk
 
-**Deskripsi:** Tambah barang masuk (dari supplier)
+**Deskripsi:** Tambah transaksi barang masuk (input oleh operator, status awal `pending`).
+
+**Field body (JSON):**
+
+- `id_barang` (integer, **wajib**) – ID barang dari master `barang`.
+- `id_supplier` (integer, opsional) – ID supplier dari master `supplier` (boleh `null`).
+- `qty` (integer, **wajib**) – jumlah barang yang masuk (minimal 1).
+- `tanggal_masuk` (string, **wajib**) – tanggal barang masuk, format `YYYY-MM-DD`.
+- `keterangan` (string, opsional) – catatan tambahan untuk transaksi ini.
 
 ```http
-POST http://34.34.217.136/api/barang-masuk
+POST http://34.101.195.103/api/barang-masuk
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "barang_id": 1,
-  "supplier_id": 1,
-  "jumlah": 10,
-  "tanggal_masuk": "2024-01-15",
-  "nomor_referensi": "REF-001",
-  "keterangan": "Barang dari supplier"
+  "id_barang": 1,
+  "id_supplier": 2,
+  "qty": 10,
+  "tanggal_masuk": "2025-12-11",
+  "keterangan": "Pengadaan awal stok"
 }
 ```
 
@@ -890,15 +912,17 @@ Content-Type: application/json
 
 ```json
 {
-  "message": "Incoming goods created successfully",
-  "data": {
+  "message": "Barang masuk created (pending)",
+  "item": {
     "id": 1,
-    "barang_id": 1,
-    "supplier_id": 1,
-    "jumlah": 10,
-    "tanggal_masuk": "2024-01-15",
+    "id_barang": 1,
+    "id_supplier": 2,
+    "qty": 10,
+    "tanggal_masuk": "2025-12-11",
+    "keterangan": "Pengadaan awal stok",
+    "id_user": 5,
     "status": "pending",
-    "created_at": "2024-01-15T10:30:00Z"
+    "created_at": "2025-12-11T10:30:00.000000Z"
   }
 }
 ```
@@ -907,10 +931,10 @@ Content-Type: application/json
 
 ### 2️⃣4️⃣ **GET /barang-masuk** - List Barang Masuk
 
-**Deskripsi:** Ambil daftar barang masuk
+**Deskripsi:** Ambil daftar transaksi barang masuk (history lengkap, diurutkan terbaru → terlama).
 
 ```http
-GET http://34.34.217.136/api/barang-masuk
+GET http://34.101.195.103/api/barang-masuk
 Authorization: Bearer {token}
 ```
 
@@ -920,12 +944,22 @@ Authorization: Bearer {token}
 [
   {
     "id": 1,
-    "barang_id": 1,
-    "supplier_id": 1,
-    "jumlah": 10,
-    "tanggal_masuk": "2024-01-15",
+    "id_barang": 1,
+    "nama_barang": "Laptop Lenovo ThinkPad",
+    "id_supplier": 2,
+    "nama_supplier": "PT. Elektronik Indonesia",
+    "qty": 10,
+    "tanggal_masuk": "2025-12-11",
+    "keterangan": "Pengadaan awal stok",
+    "id_user": 5,
+    "user_name": "Operator Gudang",
     "status": "pending",
-    "created_at": "2024-01-15T10:30:00Z"
+    "approved_by": null,
+    "approved_at": null,
+    "rejected_by": null,
+    "rejected_at": null,
+    "reject_reason": null,
+    "created_at": "2025-12-11T10:30:00.000000Z"
   }
 ]
 ```
@@ -934,16 +968,24 @@ Authorization: Bearer {token}
 
 ### 2️⃣5️⃣ **PUT /barang-masuk/{id}** - Update Barang Masuk
 
-**Deskripsi:** Update barang masuk (sebelum diapprove)
+**Deskripsi:** Update data barang masuk **selama status masih `pending`** (hanya Admin).
+
+Field yang boleh diubah (semua opsional, hanya yang dikirim yang di-update):
+
+- `id_barang` (integer) – ganti referensi barang.
+- `id_supplier` (integer/null) – ganti supplier atau kosongkan.
+- `qty` (integer) – ubah jumlah barang masuk.
+- `tanggal_masuk` (string, `YYYY-MM-DD`) – ubah tanggal masuk.
+- `keterangan` (string) – ubah catatan.
 
 ```http
-PUT http://34.34.217.136/api/barang-masuk/1
+PUT http://34.101.195.103/api/barang-masuk/1
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "jumlah": 15,
-  "keterangan": "Updated"
+  "qty": 15,
+  "keterangan": "Penyesuaian jumlah setelah pengecekan fisik"
 }
 ```
 
@@ -951,10 +993,17 @@ Content-Type: application/json
 
 ```json
 {
-  "message": "Incoming goods updated successfully",
-  "data": {
+  "message": "Updated",
+  "item": {
     "id": 1,
-    "jumlah": 15
+    "id_barang": 1,
+    "id_supplier": 2,
+    "qty": 15,
+    "tanggal_masuk": "2025-12-11",
+    "keterangan": "Penyesuaian jumlah setelah pengecekan fisik",
+    "id_user": 5,
+    "status": "pending",
+    "created_at": "2025-12-11T10:30:00.000000Z"
   }
 }
 ```
@@ -1037,38 +1086,83 @@ Authorization: Bearer {token}
 
 ---
 
+#### 🔄 Alur Operator – Barang Masuk
+
+- **Operator – Input Transaksi Barang Masuk (Status Pending)**
+
+  - **Endpoint:** `POST /api/barang-masuk`
+  - **Role:** `operator` (dalam implementasi saat ini boleh juga `admin/manager`, namun skenario utama adalah operator gudang yang menginput).
+  - **Perilaku:** Membuat record barang-masuk dengan status awal `pending` — **stok belum bertambah** sampai ada approve dari admin/manager.
+
+- **Operator – Lihat Daftar Barang Masuk (Pastikan Pending)**
+  - **Endpoint:** `GET /api/barang-masuk`
+  - **Role:** `operator`, `admin`, `manager` (siapa pun yang login dapat mengakses daftar ini sesuai UI).
+  - **Perilaku:** Menampilkan seluruh transaksi barang-masuk beserta status (`pending`, `approved`, `rejected`) sehingga operator bisa memastikan transaksi yang ia input masih `pending` sebelum disetujui.
+
+### 🔑 Hak Akses & CRUD Barang Masuk
+
+Ringkasan endpoint dan role yang diizinkan untuk fitur Barang Masuk sesuai kode backend (`BarangMasukController`):
+
+| #   | Endpoint                         | Method | Aksi                             | Role yang diizinkan                   |
+| --- | -------------------------------- | ------ | -------------------------------- | ------------------------------------- |
+| 1   | `/api/barang-masuk`              | GET    | List barang masuk                | Operator, Admin, Manager (user login) |
+| 2   | `/api/barang-masuk`              | POST   | Create barang masuk (pending)    | Operator (utama), Admin, Manager      |
+| 3   | `/api/barang-masuk/{id}`         | PUT    | Update barang masuk (pending)    | Admin                                 |
+| 4   | `/api/barang-masuk/{id}`         | DELETE | Hapus barang masuk               | Admin                                 |
+| 5   | `/api/barang-masuk/{id}/approve` | PATCH  | Approve barang masuk (+stok)     | Admin, Manager                        |
+| 6   | `/api/barang-masuk/{id}/reject`  | PATCH  | Reject barang masuk (tanpa stok) | Admin, Manager                        |
+
+Catatan:
+
+- Update (`PUT`) dan delete (`DELETE`) hanya diizinkan ketika status masih `pending` menurut logika controller.
+- Approve akan menambah stok barang sesuai `qty` pada record terkait.
+- Reject tidak mengubah stok, tetapi menyimpan `reject_reason` dan metadata siapa yang menolak.
+
+---
+
 ## 📤 Barang Keluar (Outgoing Goods)
 
 ### 2️⃣9️⃣ **POST /barang-keluar** - Create Barang Keluar
 
-**Deskripsi:** Tambah barang keluar
+**Deskripsi:** Operator mencatat transaksi barang keluar secara manual (status awal `pending`).
+
+**Field body (JSON):**
+
+- `id_barang` (integer, **wajib**) – ID barang dari master `barang`.
+- `qty` (integer, **wajib**) – jumlah barang keluar (minimal 1).
+- `tanggal_keluar` (string, opsional) – tanggal barang keluar, format `YYYY-MM-DD` (default: hari ini jika tidak diisi).
+- `keterangan` (string, opsional) – catatan tambahan transaksi barang keluar.
+- `id_request` (integer, opsional) – diisi jika barang keluar terkait langsung dengan suatu `RequestBarang` tertentu.
 
 ```http
-POST http://34.34.217.136/api/barang-keluar
+POST http://34.101.195.103/api/barang-keluar
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "barang_id": 1,
-  "jumlah": 3,
-  "tanggal_keluar": "2024-01-15",
-  "tujuan": "Departemen IT",
-  "keterangan": "Untuk kebutuhan internal"
+  "id_barang": 1,
+  "qty": 3,
+  "tanggal_keluar": "2025-12-11",
+  "keterangan": "Barang keluar untuk kebutuhan internal"
 }
 ```
+
+**Role:** `operator` saja (backend menolak role lain).
 
 **Response (201):**
 
 ```json
 {
-  "message": "Outgoing goods created successfully",
+  "message": "Barang keluar dicatat",
   "data": {
     "id": 1,
-    "barang_id": 1,
-    "jumlah": 3,
-    "tanggal_keluar": "2024-01-15",
+    "id_barang": 1,
+    "qty": 3,
+    "id_user": 5,
+    "tanggal_keluar": "2025-12-11",
+    "keterangan": "Barang keluar untuk kebutuhan internal",
     "status": "pending",
-    "created_at": "2024-01-15T10:30:00Z"
+    "created_at": "2025-12-11T10:30:00.000000Z"
   }
 }
 ```
@@ -1077,10 +1171,10 @@ Content-Type: application/json
 
 ### 3️⃣0️⃣ **GET /barang-keluar** - List Barang Keluar
 
-**Deskripsi:** Ambil daftar barang keluar
+**Deskripsi:** Ambil daftar transaksi barang keluar (history lengkap, diurutkan terbaru → terlama).
 
 ```http
-GET http://34.34.217.136/api/barang-keluar
+GET http://34.101.195.103/api/barang-keluar
 Authorization: Bearer {token}
 ```
 
@@ -1090,69 +1184,121 @@ Authorization: Bearer {token}
 [
   {
     "id": 1,
-    "barang_id": 1,
-    "jumlah": 3,
-    "tanggal_keluar": "2024-01-15",
+    "id_barang": 1,
+    "nama_barang": "Laptop Lenovo ThinkPad",
+    "qty": 3,
+    "jumlah_keluar": 3,
     "status": "pending",
-    "created_at": "2024-01-15T10:30:00Z"
+    "tanggal_keluar": "2025-12-11",
+    "id_user": 5,
+    "user_name": "Operator Gudang",
+    "id_request": 10,
+    "request_user_id": 7,
+    "request_from": "Staff Marketing",
+    "keterangan": "Barang keluar untuk kebutuhan internal",
+    "created_at": "2025-12-11T10:30:00.000000Z",
+    "updated_at": "2025-12-11T10:40:00.000000Z"
   }
 ]
 ```
+
+**Role:** seluruh user yang sudah login (admin, manager, operator, staff) dapat mengakses list ini.
 
 ---
 
 ### 3️⃣1️⃣ **PUT /barang-keluar/{id}** - Update Barang Keluar
 
-**Deskripsi:** Update barang keluar (sebelum diprocess)
+**Deskripsi:** Update data barang keluar (hanya oleh Admin/Manager).
+
+Field yang dapat diubah (sesuai validasi backend):
+
+- `qty` (integer, **wajib**) – jumlah barang keluar baru.
+- `tanggal_keluar` (string, opsional) – ubah tanggal keluar (`YYYY-MM-DD`).
+- `keterangan` (string, opsional) – ubah catatan.
+- `status` (string, opsional) – salah satu dari `pending`, `approved`, `rejected`, `done`.
 
 ```http
-PUT http://34.34.217.136/api/barang-keluar/1
+PUT http://34.101.195.103/api/barang-keluar/1
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "jumlah": 5,
-  "keterangan": "Updated"
+  "qty": 5,
+  "keterangan": "Penyesuaian qty sebelum pengiriman",
+  "status": "pending"
 }
 ```
+
+**Role:** `admin`, `manager`.
 
 **Response (200):**
 
 ```json
 {
-  "message": "Outgoing goods updated successfully",
+  "message": "Updated",
   "data": {
     "id": 1,
-    "jumlah": 5
+    "id_barang": 1,
+    "qty": 5,
+    "tanggal_keluar": "2025-12-11",
+    "keterangan": "Penyesuaian qty sebelum pengiriman",
+    "status": "pending"
   }
 }
 ```
 
 ---
 
-### 3️⃣2️⃣ **POST /barang-keluar/process-request/{id}** - Process Barang Keluar
+### 3️⃣2️⃣ **POST /barang-keluar/process-request/{id}** - Process Request → Barang Keluar
 
-**Deskripsi:** Process/approve barang keluar (mengurangi stok)
+**Deskripsi:** Operator memproses `RequestBarang` yang sudah **approved** menjadi transaksi barang keluar dan langsung mengurangi stok.
+
+**Catatan penting:**
+
+- `{id}` di path adalah **ID RequestBarang** (bukan ID barang-keluar).
+- RequestBarang harus berstatus `approved`, kalau tidak akan ditolak (`422`).
+
+Field body (JSON):
+
+- `qty` (integer, **wajib**) – jumlah yang benar-benar dikeluarkan (boleh ≤ jumlah di request, selama stok cukup).
+- `lokasi` (string, opsional) – lokasi tujuan barang.
+- `keterangan` (string, opsional) – catatan tambahan.
 
 ```http
-POST http://34.34.217.136/api/barang-keluar/process-request/1
+POST http://34.101.195.103/api/barang-keluar/process-request/10
 Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "keterangan": "Processed by operator"
+  "qty": 3,
+  "lokasi": "Ruang Meeting Lt. 2",
+  "keterangan": "Pengeluaran barang dari request #10"
 }
 ```
 
-**Response (200):**
+**Role:** `operator` saja.
+
+**Efek:**
+
+- Membuat record baru di tabel `barang_keluar` dengan `status = "done"`.
+- Mengurangi `stok` barang di tabel `barang` sebanyak `qty`.
+- Mengubah status RequestBarang terkait menjadi `done`.
+
+**Response (201):**
 
 ```json
 {
-  "message": "Outgoing goods processed",
+  "message": "Processed",
   "data": {
     "id": 1,
-    "status": "processed",
-    "stok_berkurang": 3
+    "id_request": 10,
+    "id_barang": 1,
+    "qty": 3,
+    "id_user": 5,
+    "tanggal_keluar": "2025-12-11",
+    "lokasi": "Ruang Meeting Lt. 2",
+    "keterangan": "Pengeluaran barang dari request #10",
+    "status": "done"
   }
 }
 ```
@@ -1161,20 +1307,63 @@ Content-Type: application/json
 
 ### 3️⃣3️⃣ **DELETE /barang-keluar/{id}** - Delete Barang Keluar
 
-**Deskripsi:** Hapus barang keluar
+**Deskripsi:** Hapus record barang keluar.
 
 ```http
-DELETE http://34.34.217.136/api/barang-keluar/1
+DELETE http://34.101.195.103/api/barang-keluar/1
 Authorization: Bearer {token}
 ```
+
+**Role:** saat ini di backend **belum** ada pembatasan role khusus (selama pengguna login). Di sisi UI, disarankan hanya Admin yang diberi akses fitur hapus.
 
 **Response (200):**
 
 ```json
 {
-  "message": "Outgoing goods deleted successfully"
+  "message": "Deleted"
 }
 ```
+
+---
+
+#### 🔄 Alur Operator / Admin / Manager – Barang Keluar
+
+- **Operator – Buat Barang Keluar Manual (Pending)**
+
+  - Endpoint: `POST /api/barang-keluar`
+  - Status awal: `pending`.
+  - Tidak langsung mengubah stok; stok berkurang ketika proses permintaan (`process-request`) atau sesuai kebijakan bisnis (saat ini stok berkurang di `process-request`).
+
+- **Operator – Proses Request Disetujui**
+
+  - Endpoint: `POST /api/barang-keluar/process-request/{requestId}`
+  - Hanya untuk RequestBarang berstatus `approved`.
+  - Mengurangi stok dan menandai RequestBarang menjadi `done`.
+
+- **Admin/Manager – Review & Koreksi Barang Keluar**
+
+  - Endpoint: `PUT /api/barang-keluar/{id}`
+  - Dapat mengubah `qty`, `tanggal_keluar`, `keterangan`, dan `status`.
+
+- **Admin/Manager – Approve / Reject Barang Keluar (Manual)**
+  - Endpoint: `PATCH /api/barang-keluar/{id}/approve` dan `PATCH /api/barang-keluar/{id}/reject`.
+  - Digunakan jika dibuat alur approval tambahan di atas barang-keluar manual.
+
+### 🔑 Hak Akses & CRUD Barang Keluar
+
+Ringkasan endpoint dan role yang diizinkan untuk fitur Barang Keluar sesuai kode backend (`BarangKeluarController`):
+
+| #   | Endpoint                                  | Method | Aksi                                          | Role yang diizinkan                                |
+| --- | ----------------------------------------- | ------ | --------------------------------------------- | -------------------------------------------------- |
+| 1   | `/api/barang-keluar`                      | GET    | List barang keluar                            | Semua user login (Admin, Manager, Operator, Staff) |
+| 2   | `/api/barang-keluar`                      | POST   | Buat transaksi barang keluar (pending)        | Operator                                           |
+| 3   | `/api/barang-keluar/{id}`                 | PUT    | Update data barang keluar                     | Admin, Manager                                     |
+| 4   | `/api/barang-keluar/{id}`                 | DELETE | Hapus barang keluar                           | Semua user login (disarankan hanya Admin di UI)    |
+| 5   | `/api/barang-keluar/{id}/approve`         | PATCH  | Approve barang keluar                         | Admin, Manager                                     |
+| 6   | `/api/barang-keluar/{id}/reject`          | PATCH  | Reject barang keluar                          | Admin, Manager                                     |
+| 7   | `/api/barang-keluar/process-request/{id}` | POST   | Proses RequestBarang approved → barang keluar | Operator                                           |
+
+Status yang digunakan di barang-keluar: `pending`, `approved`, `rejected`, `done`.
 
 ---
 

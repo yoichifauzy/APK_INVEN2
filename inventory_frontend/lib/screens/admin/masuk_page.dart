@@ -279,6 +279,238 @@ class _BarangMasukPageState extends State<BarangMasukPage> {
     }
   }
 
+  Future<void> _showEditMasukDialog(Map<String, dynamic> entry) async {
+    final _formKey = GlobalKey<FormState>();
+
+    int selectedItemId = (entry['id_barang'] is int)
+        ? entry['id_barang'] as int
+        : int.tryParse(entry['id_barang']?.toString() ?? '') ??
+              (_items.isNotEmpty ? (_items[0]['id'] as int) : 0);
+
+    int? selectedSupplierId = entry['id_supplier'] == null
+        ? null
+        : (entry['id_supplier'] is int
+              ? entry['id_supplier'] as int
+              : int.tryParse(entry['id_supplier']?.toString() ?? ''));
+
+    String qty = (entry['qty'] ?? '1').toString();
+
+    DateTime tanggal;
+    try {
+      tanggal = DateTime.parse(entry['tanggal_masuk']?.toString() ?? '');
+    } catch (_) {
+      tanggal = DateTime.now();
+    }
+
+    String keterangan = (entry['keterangan'] ?? '').toString();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Edit Barang Masuk'),
+        content: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_items.isEmpty)
+                  const Text('Tidak ada data barang tersedia.'),
+                if (_items.isNotEmpty)
+                  DropdownButtonFormField<int>(
+                    value: selectedItemId,
+                    items: _items
+                        .map(
+                          (it) => DropdownMenuItem(
+                            value: it['id'] as int,
+                            child: Text(it['nama_barang'] ?? ''),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => selectedItemId = v ?? selectedItemId,
+                    decoration: const InputDecoration(
+                      labelText: 'Barang',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                if (_suppliers.isNotEmpty)
+                  DropdownButtonFormField<int>(
+                    value: selectedSupplierId,
+                    items: _suppliers
+                        .map(
+                          (s) => DropdownMenuItem(
+                            value: s['id'] as int,
+                            child: Text(s['nama_supplier'] ?? ''),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => selectedSupplierId = v,
+                    decoration: const InputDecoration(
+                      labelText: 'Supplier (opsional)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: qty,
+                  decoration: const InputDecoration(
+                    labelText: 'Qty',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Qty required' : null,
+                  onSaved: (v) => qty = v ?? qty,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: tanggal.toIso8601String().split('T').first,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Tanggal (YYYY-MM-DD)',
+                    border: OutlineInputBorder(),
+                  ),
+                  onTap: () async {
+                    final d = await showDatePicker(
+                      context: context,
+                      initialDate: tanggal,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (d != null) {
+                      tanggal = d;
+                      setState(() {});
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: keterangan,
+                  decoration: const InputDecoration(
+                    labelText: 'Keterangan',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSaved: (v) => keterangan = v ?? '',
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: Text('Batal', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (!_formKey.currentState!.validate()) return;
+              _formKey.currentState!.save();
+              final auth = Provider.of<AuthService>(context, listen: false);
+              final payload = <String, dynamic>{
+                'id_barang': selectedItemId,
+                'qty': int.tryParse(qty) ?? 1,
+                'tanggal_masuk': tanggal.toIso8601String(),
+                'keterangan': keterangan,
+              };
+              if (selectedSupplierId != null) {
+                payload['id_supplier'] = selectedSupplierId;
+              } else {
+                payload['id_supplier'] = null;
+              }
+
+              final int id = entry['id'] is int
+                  ? entry['id'] as int
+                  : int.parse(entry['id'].toString());
+
+              final ok = await auth.updateBarangMasuk(id, payload);
+              if (!mounted) return;
+              try {
+                Navigator.pop(c, ok);
+              } catch (_) {}
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color.fromARGB(255, 187, 204, 202),
+            ),
+            child: const Text('Simpan Perubahan'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Barang masuk berhasil diperbarui'),
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      await _loadAll();
+    } else if (result == false) {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.lastError ?? 'Gagal memperbarui data'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteBarangMasuk(Map<String, dynamic> entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Hapus Barang Masuk'),
+        content: const Text(
+          'Yakin ingin menghapus transaksi barang masuk ini?'
+          '\nJika sudah di-approve, stok akan dikoreksi secara otomatis.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(c, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final int id = entry['id'] is int
+        ? entry['id'] as int
+        : int.parse(entry['id'].toString());
+    final ok = await auth.deleteBarangMasuk(id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Barang masuk berhasil dihapus'
+              : auth.lastError ?? 'Gagal menghapus barang masuk',
+        ),
+        backgroundColor: ok ? Colors.green.shade600 : Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    if (ok) await _loadAll();
+  }
+
   Future<void> _showDetail(Map<String, dynamic> e) async {
     final tanggal = _formatDate(e['tanggal_masuk']?.toString());
 
@@ -351,6 +583,7 @@ class _BarangMasukPageState extends State<BarangMasukPage> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
+    final isAdmin = auth.user?.hasRole('admin') == true;
     final isAdminOrManager =
         auth.user?.hasRole('admin') == true ||
         auth.user?.hasRole('manager') == true;
@@ -492,108 +725,158 @@ class _BarangMasukPageState extends State<BarangMasukPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _statusChip(status),
-                          if (isAdminOrManager && status == 'pending') ...[
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.check_circle_outline,
-                                color: Colors.green,
-                                size: 20,
-                              ),
-                              tooltip: 'Approve',
-                              onPressed: () async {
-                                final id = e['id'] is int
-                                    ? e['id'] as int
-                                    : int.parse(e['id'].toString());
-                                final ok = await auth.approveBarangMasuk(id);
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      ok
-                                          ? 'Barang masuk berhasil di-approve'
-                                          : auth.lastError ??
-                                                'Gagal approve barang masuk',
-                                    ),
-                                    backgroundColor: ok
-                                        ? Colors.green.shade600
-                                        : Colors.red.shade600,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                                if (ok) await _loadAll();
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.cancel_outlined,
-                                color: Colors.red,
-                                size: 20,
-                              ),
-                              tooltip: 'Reject',
-                              onPressed: () async {
-                                String reason = '';
-                                final confirmed = await showDialog<bool>(
-                                  context: context,
-                                  builder: (c) {
-                                    return AlertDialog(
-                                      title: const Text('Tolak Barang Masuk'),
-                                      content: TextField(
-                                        decoration: const InputDecoration(
-                                          labelText: 'Alasan penolakan',
-                                          border: OutlineInputBorder(),
-                                        ),
-                                        onChanged: (v) => reason = v,
-                                        maxLines: 3,
+                          if (status == 'pending' &&
+                              (isAdminOrManager || isAdmin))
+                            PopupMenuButton<String>(
+                              tooltip: 'Aksi',
+                              icon: const Icon(Icons.more_vert),
+                              onSelected: (value) async {
+                                if (value == 'approve' && isAdminOrManager) {
+                                  final id = e['id'] is int
+                                      ? e['id'] as int
+                                      : int.parse(e['id'].toString());
+                                  final ok = await auth.approveBarangMasuk(id);
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ok
+                                            ? 'Barang masuk berhasil di-approve'
+                                            : auth.lastError ??
+                                                  'Gagal approve barang masuk',
                                       ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(c, false),
-                                          child: const Text('Batal'),
-                                        ),
-                                        ElevatedButton(
-                                          onPressed: () =>
-                                              Navigator.pop(c, true),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                Colors.red.shade600,
-                                            foregroundColor: Colors.white,
-                                          ),
-                                          child: const Text('Tolak'),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                                if (confirmed != true) return;
-
-                                final id = e['id'] is int
-                                    ? e['id'] as int
-                                    : int.parse(e['id'].toString());
-                                final ok = await auth.rejectBarangMasuk(
-                                  id,
-                                  reason: reason.isEmpty ? null : reason,
-                                );
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      ok
-                                          ? 'Barang masuk berhasil ditolak'
-                                          : auth.lastError ??
-                                                'Gagal menolak barang masuk',
+                                      backgroundColor: ok
+                                          ? Colors.green.shade600
+                                          : Colors.red.shade600,
+                                      behavior: SnackBarBehavior.floating,
                                     ),
-                                    backgroundColor: ok
-                                        ? Colors.green.shade600
-                                        : Colors.red.shade600,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                                if (ok) await _loadAll();
+                                  );
+                                  if (ok) await _loadAll();
+                                } else if (value == 'reject' &&
+                                    isAdminOrManager) {
+                                  String reason = '';
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (c) {
+                                      return AlertDialog(
+                                        title: const Text('Tolak Barang Masuk'),
+                                        content: TextField(
+                                          decoration: const InputDecoration(
+                                            labelText: 'Alasan penolakan',
+                                            border: OutlineInputBorder(),
+                                          ),
+                                          onChanged: (v) => reason = v,
+                                          maxLines: 3,
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, false),
+                                            child: const Text('Batal'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.red.shade600,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            child: const Text('Tolak'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  if (confirmed != true) return;
+
+                                  final id = e['id'] is int
+                                      ? e['id'] as int
+                                      : int.parse(e['id'].toString());
+                                  final ok = await auth.rejectBarangMasuk(
+                                    id,
+                                    reason: reason.isEmpty ? null : reason,
+                                  );
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ok
+                                            ? 'Barang masuk berhasil ditolak'
+                                            : auth.lastError ??
+                                                  'Gagal menolak barang masuk',
+                                      ),
+                                      backgroundColor: ok
+                                          ? Colors.green.shade600
+                                          : Colors.red.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  if (ok) await _loadAll();
+                                } else if (value == 'edit' && isAdmin) {
+                                  await _showEditMasukDialog(e);
+                                } else if (value == 'delete' && isAdmin) {
+                                  await _confirmDeleteBarangMasuk(e);
+                                }
+                              },
+                              itemBuilder: (context) {
+                                final items = <PopupMenuEntry<String>>[];
+                                if (isAdminOrManager) {
+                                  items.addAll([
+                                    const PopupMenuItem<String>(
+                                      value: 'approve',
+                                      child: ListTile(
+                                        leading: Icon(
+                                          Icons.check_circle_outline,
+                                          color: Colors.green,
+                                          size: 20,
+                                        ),
+                                        title: Text('Approve'),
+                                      ),
+                                    ),
+                                    const PopupMenuItem<String>(
+                                      value: 'reject',
+                                      child: ListTile(
+                                        leading: Icon(
+                                          Icons.cancel_outlined,
+                                          color: Colors.red,
+                                          size: 20,
+                                        ),
+                                        title: Text('Reject'),
+                                      ),
+                                    ),
+                                  ]);
+                                }
+                                if (isAdmin) {
+                                  items.addAll([
+                                    const PopupMenuDivider(),
+                                    const PopupMenuItem<String>(
+                                      value: 'edit',
+                                      child: ListTile(
+                                        leading: Icon(
+                                          Icons.edit,
+                                          color: Colors.blueGrey,
+                                          size: 20,
+                                        ),
+                                        title: Text('Edit'),
+                                      ),
+                                    ),
+                                    const PopupMenuItem<String>(
+                                      value: 'delete',
+                                      child: ListTile(
+                                        leading: Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.grey,
+                                          size: 20,
+                                        ),
+                                        title: Text('Delete'),
+                                      ),
+                                    ),
+                                  ]);
+                                }
+                                return items;
                               },
                             ),
-                          ],
                         ],
                       ),
                     ),
