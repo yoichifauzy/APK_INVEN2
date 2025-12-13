@@ -346,6 +346,7 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
 
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
+    final isOperator = auth.user?.hasRole('operator') == true;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -373,11 +374,61 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
           : RefreshIndicator(
               onRefresh: _loadAll,
               color: Colors.teal.shade700,
-              child: _entries.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: () {
+                  if (isOperator) {
+                    if (_entries.isEmpty) return 2; // banner + empty state
+                    return _entries.length + 1; // banner + list
+                  } else {
+                    if (_entries.isEmpty) return 1; // only empty state
+                    return _entries.length; // list only
+                  }
+                }(),
+                itemBuilder: (context, i) {
+                  // Banner info khusus operator di paling atas
+                  if (isOperator && i == 0) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Icon(Icons.info_outline, color: Colors.blue.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Petunjuk untuk Operator',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Tombol + untuk input barang keluar manual (status pending). Untuk memproses request yang sudah disetujui, gunakan menu "Proses Barang Keluar".',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  // Hitung index data sebenarnya di list
+                  if (isOperator) {
+                    if (_entries.isEmpty && i == 1) {
+                      // empty state untuk operator
+                      return Column(
+                        children: [
+                          const SizedBox(height: 32),
                           Icon(
                             Icons.output_outlined,
                             size: 80,
@@ -400,563 +451,868 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                             ),
                           ),
                         ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _entries.length,
-                      itemBuilder: (context, i) {
-                        final e = _entries[i];
-                        final tanggalRaw = e['tanggal_keluar'];
-                        String tanggalStr = '';
-                        if (tanggalRaw != null) {
-                          try {
-                            tanggalStr = tanggalRaw.toString().split('T').first;
-                          } catch (_) {
-                            tanggalStr = tanggalRaw.toString();
-                          }
+                      );
+                    }
+
+                    // geser index 1 karena ada banner
+                    if (!_entries.isEmpty) {
+                      final e = _entries[i - 1];
+                      final tanggalRaw = e['tanggal_keluar'];
+                      String tanggalStr = '';
+                      if (tanggalRaw != null) {
+                        try {
+                          tanggalStr = tanggalRaw.toString().split('T').first;
+                        } catch (_) {
+                          tanggalStr = tanggalRaw.toString();
                         }
-                        final status = (e['status'] ?? 'pending').toString();
-                        final isAdminOrManager =
-                            auth.user?.hasRole('admin') == true ||
-                            auth.user?.hasRole('manager') == true;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                      }
+                      final status = (e['status'] ?? 'pending').toString();
+                      final isAdminOrManager =
+                          auth.user?.hasRole('admin') == true ||
+                          auth.user?.hasRole('manager') == true;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(16),
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: _statusIconColor(status).withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _statusIcon(status),
+                              color: _statusIconColor(status),
+                              size: 20,
+                            ),
+                          ),
+                          title: Text(
+                            e['nama_barang'] ?? '',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Text(
+                                'Qty: ${e['qty'] ?? e['jumlah_keluar'] ?? ''} • Tanggal: $tanggalStr',
+                                style: TextStyle(color: Colors.grey.shade600),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Keperluan: ${e['keterangan'] ?? '-'}',
+                                style: TextStyle(color: Colors.grey.shade600),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Operator: ${e['user_name'] ?? e['operator']?['name'] ?? '-'}',
+                                style: TextStyle(color: Colors.grey.shade600),
                               ),
                             ],
                           ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: _statusIconColor(
-                                  status,
-                                ).withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                _statusIcon(status),
-                                color: _statusIconColor(status),
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              e['nama_barang'] ?? '',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Qty: ${e['qty'] ?? e['jumlah_keluar'] ?? ''} • Tanggal: $tanggalStr',
-                                  style: TextStyle(color: Colors.grey.shade600),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Keperluan: ${e['keterangan'] ?? '-'}',
-                                  style: TextStyle(color: Colors.grey.shade600),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Operator: ${e['user_name'] ?? e['operator']?['name'] ?? '-'}',
-                                  style: TextStyle(color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _statusChip(status),
-                                const SizedBox(width: 8),
-                                if (isAdminOrManager &&
-                                    status == 'pending') ...[
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.check_circle_outline,
-                                      color: Colors.green,
-                                      size: 20,
-                                    ),
-                                    tooltip: 'Approve',
-                                    onPressed: () async {
-                                      final ok = await auth.approveBarangKeluar(
-                                        e['id'] is int
-                                            ? e['id']
-                                            : int.parse(e['id'].toString()),
-                                      );
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            ok
-                                                ? 'Barang keluar berhasil di-approve'
-                                                : auth.lastError ??
-                                                      'Gagal approve barang keluar',
-                                          ),
-                                          backgroundColor: ok
-                                              ? Colors.green.shade600
-                                              : Colors.red.shade600,
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                      if (ok) await _loadAll();
-                                    },
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _statusChip(status),
+                              const SizedBox(width: 8),
+                              if (isAdminOrManager && status == 'pending') ...[
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.check_circle_outline,
+                                    color: Colors.green,
+                                    size: 20,
                                   ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.cancel_outlined,
-                                      color: Colors.red,
-                                      size: 20,
-                                    ),
-                                    tooltip: 'Reject',
-                                    onPressed: () async {
-                                      String reason = '';
-                                      final confirmed = await showDialog<bool>(
-                                        context: context,
-                                        builder: (c) {
-                                          return AlertDialog(
-                                            title: const Text(
-                                              'Tolak Barang Keluar',
-                                            ),
-                                            content: TextField(
-                                              decoration: const InputDecoration(
-                                                labelText: 'Alasan penolakan',
-                                                border: OutlineInputBorder(),
-                                              ),
-                                              onChanged: (v) => reason = v,
-                                              maxLines: 3,
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(c, false),
-                                                child: const Text('Batal'),
-                                              ),
-                                              ElevatedButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(c, true),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.red.shade600,
-                                                  foregroundColor: Colors.white,
-                                                ),
-                                                child: const Text('Tolak'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      if (confirmed != true) return;
-
-                                      final ok = await auth.rejectBarangKeluar(
-                                        e['id'] is int
-                                            ? e['id']
-                                            : int.parse(e['id'].toString()),
-                                        reason: reason.isEmpty ? null : reason,
-                                      );
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            ok
-                                                ? 'Barang keluar berhasil ditolak'
-                                                : auth.lastError ??
-                                                      'Gagal menolak barang keluar',
-                                          ),
-                                          backgroundColor: ok
-                                              ? Colors.green.shade600
-                                              : Colors.red.shade600,
-                                          behavior: SnackBarBehavior.floating,
+                                  tooltip: 'Approve',
+                                  onPressed: () async {
+                                    final ok = await auth.approveBarangKeluar(
+                                      e['id'] is int
+                                          ? e['id']
+                                          : int.parse(e['id'].toString()),
+                                    );
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? 'Barang keluar berhasil di-approve'
+                                              : auth.lastError ??
+                                                    'Gagal approve barang keluar',
                                         ),
-                                      );
-                                      if (ok) await _loadAll();
-                                    },
-                                  ),
-                                  const SizedBox(width: 4),
-                                ],
-                                PopupMenuButton<String>(
-                                  icon: Icon(
-                                    Icons.more_vert,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  onSelected: (v) async {
-                                    if (v == 'view')
-                                      return await _showDetail(e);
-                                    if (v == 'edit')
-                                      return await _showEditDialog(e);
-                                    if (v == 'delete')
-                                      return await _deleteEntry(e);
-                                    if (v == 'approve') {
-                                      final ok = await auth.approveBarangKeluar(
-                                        e['id'] is int
-                                            ? e['id']
-                                            : int.parse(e['id'].toString()),
-                                      );
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            ok
-                                                ? 'Barang keluar berhasil di-approve'
-                                                : auth.lastError ??
-                                                      'Gagal approve barang keluar',
-                                          ),
-                                          backgroundColor: ok
-                                              ? Colors.green.shade600
-                                              : Colors.red.shade600,
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                      if (ok) await _loadAll();
-                                      return;
-                                    }
-                                    if (v == 'reject') {
-                                      String reason = '';
-                                      final confirmed = await showDialog<bool>(
-                                        context: context,
-                                        builder: (c) {
-                                          return AlertDialog(
-                                            title: const Text(
-                                              'Tolak Barang Keluar',
-                                            ),
-                                            content: TextField(
-                                              decoration: const InputDecoration(
-                                                labelText: 'Alasan penolakan',
-                                                border: OutlineInputBorder(),
-                                              ),
-                                              onChanged: (v) => reason = v,
-                                              maxLines: 3,
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(c, false),
-                                                child: const Text('Batal'),
-                                              ),
-                                              ElevatedButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(c, true),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.red.shade600,
-                                                  foregroundColor: Colors.white,
-                                                ),
-                                                child: const Text('Tolak'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      if (confirmed != true) return;
-
-                                      final ok = await auth.rejectBarangKeluar(
-                                        e['id'] is int
-                                            ? e['id']
-                                            : int.parse(e['id'].toString()),
-                                        reason: reason.isEmpty ? null : reason,
-                                      );
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            ok
-                                                ? 'Barang keluar berhasil ditolak'
-                                                : auth.lastError ??
-                                                      'Gagal menolak barang keluar',
-                                          ),
-                                          backgroundColor: ok
-                                              ? Colors.green.shade600
-                                              : Colors.red.shade600,
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                      if (ok) await _loadAll();
-                                      return;
-                                    }
-                                    if (v == 'print') {
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: const Text(
-                                            'Cetak belum diimplementasikan',
-                                          ),
-                                          backgroundColor:
-                                              Colors.orange.shade600,
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                    }
-                                    if (v == 'export') {
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: const Text(
-                                            'Export laporan belum diimplementasikan',
-                                          ),
-                                          backgroundColor:
-                                              Colors.orange.shade600,
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                    }
+                                        backgroundColor: ok
+                                            ? Colors.green.shade600
+                                            : Colors.red.shade600,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                    if (ok) await _loadAll();
                                   },
-                                  itemBuilder: (c) {
-                                    final List<PopupMenuEntry<String>> items = [
-                                      const PopupMenuItem(
-                                        value: 'view',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.visibility, size: 20),
-                                            SizedBox(width: 8),
-                                            Text('Detail'),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.cancel_outlined,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                  tooltip: 'Reject',
+                                  onPressed: () async {
+                                    String reason = '';
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (c) {
+                                        return AlertDialog(
+                                          title: const Text(
+                                            'Tolak Barang Keluar',
+                                          ),
+                                          content: TextField(
+                                            decoration: const InputDecoration(
+                                              labelText: 'Alasan penolakan',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                            onChanged: (v) => reason = v,
+                                            maxLines: 3,
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(c, false),
+                                              child: const Text('Batal'),
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(c, true),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    Colors.red.shade600,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              child: const Text('Tolak'),
+                                            ),
                                           ],
-                                        ),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'print',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.print, size: 20),
-                                            SizedBox(width: 8),
-                                            Text('Cetak'),
-                                          ],
-                                        ),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'export',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.download, size: 20),
-                                            SizedBox(width: 8),
-                                            Text('Export laporan'),
-                                          ],
-                                        ),
-                                      ),
-                                    ];
+                                        );
+                                      },
+                                    );
+                                    if (confirmed != true) return;
 
-                                    final isAdminOrManager =
-                                        auth.user?.hasRole('admin') == true ||
-                                        auth.user?.hasRole('manager') == true;
+                                    final ok = await auth.rejectBarangKeluar(
+                                      e['id'] is int
+                                          ? e['id']
+                                          : int.parse(e['id'].toString()),
+                                      reason: reason.isEmpty ? null : reason,
+                                    );
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? 'Barang keluar berhasil ditolak'
+                                              : auth.lastError ??
+                                                    'Gagal menolak barang keluar',
+                                        ),
+                                        backgroundColor: ok
+                                            ? Colors.green.shade600
+                                            : Colors.red.shade600,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                    if (ok) await _loadAll();
+                                  },
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                              PopupMenuButton<String>(
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: Colors.grey.shade600,
+                                ),
+                                onSelected: (v) async {
+                                  if (v == 'view') return await _showDetail(e);
+                                  if (v == 'edit')
+                                    return await _showEditDialog(e);
+                                  if (v == 'delete')
+                                    return await _deleteEntry(e);
+                                  if (v == 'approve') {
+                                    final ok = await auth.approveBarangKeluar(
+                                      e['id'] is int
+                                          ? e['id']
+                                          : int.parse(e['id'].toString()),
+                                    );
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? 'Barang keluar berhasil di-approve'
+                                              : auth.lastError ??
+                                                    'Gagal approve barang keluar',
+                                        ),
+                                        backgroundColor: ok
+                                            ? Colors.green.shade600
+                                            : Colors.red.shade600,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                    if (ok) await _loadAll();
+                                    return;
+                                  }
+                                  if (v == 'reject') {
+                                    String reason = '';
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (c) {
+                                        return AlertDialog(
+                                          title: const Text(
+                                            'Tolak Barang Keluar',
+                                          ),
+                                          content: TextField(
+                                            decoration: const InputDecoration(
+                                              labelText: 'Alasan penolakan',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                            onChanged: (v) => reason = v,
+                                            maxLines: 3,
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(c, false),
+                                              child: const Text('Batal'),
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(c, true),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    Colors.red.shade600,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              child: const Text('Tolak'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                    if (confirmed != true) return;
 
-                                    if (isAdminOrManager) {
+                                    final ok = await auth.rejectBarangKeluar(
+                                      e['id'] is int
+                                          ? e['id']
+                                          : int.parse(e['id'].toString()),
+                                      reason: reason.isEmpty ? null : reason,
+                                    );
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? 'Barang keluar berhasil ditolak'
+                                              : auth.lastError ??
+                                                    'Gagal menolak barang keluar',
+                                        ),
+                                        backgroundColor: ok
+                                            ? Colors.green.shade600
+                                            : Colors.red.shade600,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                    if (ok) await _loadAll();
+                                    return;
+                                  }
+                                  if (v == 'print') {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                          'Cetak belum diimplementasikan',
+                                        ),
+                                        backgroundColor: Colors.orange.shade600,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  }
+                                  if (v == 'export') {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                          'Export laporan belum diimplementasikan',
+                                        ),
+                                        backgroundColor: Colors.orange.shade600,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  }
+                                },
+                                itemBuilder: (c) {
+                                  final List<PopupMenuEntry<String>> items = [
+                                    const PopupMenuItem(
+                                      value: 'view',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.visibility, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('Detail'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'print',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.print, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('Cetak'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'export',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.download, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('Export laporan'),
+                                        ],
+                                      ),
+                                    ),
+                                  ];
+
+                                  final isAdminOrManager =
+                                      auth.user?.hasRole('admin') == true ||
+                                      auth.user?.hasRole('manager') == true;
+
+                                  if (isAdminOrManager) {
+                                    items.insertAll(1, [
+                                      const PopupMenuItem(
+                                        value: 'edit',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.edit, size: 20),
+                                            SizedBox(width: 8),
+                                            Text('Edit'),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.delete,
+                                              size: 20,
+                                              color: Colors.red,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text('Delete'),
+                                          ],
+                                        ),
+                                      ),
+                                    ]);
+
+                                    if (status == 'pending') {
                                       items.insertAll(1, [
                                         const PopupMenuItem(
-                                          value: 'edit',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.edit, size: 20),
-                                              SizedBox(width: 8),
-                                              Text('Edit'),
-                                            ],
-                                          ),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'delete',
+                                          value: 'approve',
                                           child: Row(
                                             children: [
                                               Icon(
-                                                Icons.delete,
+                                                Icons.check_circle_outline,
+                                                size: 20,
+                                                color: Colors.green,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text('Approve'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'reject',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.cancel_outlined,
                                                 size: 20,
                                                 color: Colors.red,
                                               ),
                                               SizedBox(width: 8),
-                                              Text('Delete'),
+                                              Text('Reject'),
                                             ],
                                           ),
                                         ),
                                       ]);
-
-                                      if (status == 'pending') {
-                                        items.insertAll(1, [
-                                          const PopupMenuItem(
-                                            value: 'approve',
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.check_circle_outline,
-                                                  size: 20,
-                                                  color: Colors.green,
-                                                ),
-                                                SizedBox(width: 8),
-                                                Text('Approve'),
-                                              ],
-                                            ),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'reject',
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.cancel_outlined,
-                                                  size: 20,
-                                                  color: Colors.red,
-                                                ),
-                                                SizedBox(width: 8),
-                                                Text('Reject'),
-                                              ],
-                                            ),
-                                          ),
-                                        ]);
-                                      }
                                     }
+                                  }
 
-                                    return items;
-                                  },
-                                ),
-                              ],
-                            ),
+                                  return items;
+                                },
+                              ),
+                            ],
                           ),
-                        );
-                      },
-                    ),
-            ),
-      floatingActionButton: auth.user?.hasRole('admin') == true
-          ? FloatingActionButton(
-              onPressed: () async {
-                // Quick create dialog for demo
-                final _formKey = GlobalKey<FormState>();
-                int qty = 1;
-                String keterangan = '';
+                        ),
+                      );
+                    }
 
-                final created = await showDialog<bool>(
-                  context: context,
-                  builder: (c) => AlertDialog(
-                    title: const Text('Input Barang Keluar'),
-                    content: Form(
-                      key: _formKey,
-                      child: SingleChildScrollView(
+                    // fallback jika tidak ada data
+                    return const SizedBox.shrink();
+                  } else {
+                    // Non-operator: tampilkan hanya empty state atau list
+                    if (_entries.isEmpty && i == 0) {
+                      return Center(
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.output_outlined,
+                              size: 80,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Belum ada riwayat barang keluar',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Data barang keluar akan muncul di sini',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final e = _entries[i];
+                    final tanggalRaw = e['tanggal_keluar'];
+                    String tanggalStr = '';
+                    if (tanggalRaw != null) {
+                      try {
+                        tanggalStr = tanggalRaw.toString().split('T').first;
+                      } catch (_) {
+                        tanggalStr = tanggalRaw.toString();
+                      }
+                    }
+                    final status = (e['status'] ?? 'pending').toString();
+                    final isAdminOrManager =
+                        auth.user?.hasRole('admin') == true ||
+                        auth.user?.hasRole('manager') == true;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(16),
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: _statusIconColor(status).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _statusIcon(status),
+                            color: _statusIconColor(status),
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          e['nama_barang'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              'Qty: ${e['qty'] ?? e['jumlah_keluar'] ?? ''} • Tanggal: $tanggalStr',
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Keperluan: ${e['keterangan'] ?? '-'}',
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Operator: ${e['user_name'] ?? e['operator']?['name'] ?? '-'}',
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                        trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            TextFormField(
-                              initialValue: '1',
-                              decoration: const InputDecoration(
-                                labelText: 'Qty',
-                                border: OutlineInputBorder(),
+                            _statusChip(status),
+                            const SizedBox(width: 8),
+                            if (isAdminOrManager && status == 'pending') ...[
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.check_circle_outline,
+                                  color: Colors.green,
+                                  size: 20,
+                                ),
+                                tooltip: 'Approve',
+                                onPressed: () async {
+                                  final ok = await auth.approveBarangKeluar(
+                                    e['id'] is int
+                                        ? e['id']
+                                        : int.parse(e['id'].toString()),
+                                  );
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ok
+                                            ? 'Barang keluar berhasil di-approve'
+                                            : auth.lastError ??
+                                                  'Gagal approve barang keluar',
+                                      ),
+                                      backgroundColor: ok
+                                          ? Colors.green.shade600
+                                          : Colors.red.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  if (ok) await _loadAll();
+                                },
                               ),
-                              keyboardType: TextInputType.number,
-                              validator: (v) => (v == null || v.isEmpty)
-                                  ? 'Qty required'
-                                  : null,
-                              onSaved: (v) => qty = int.tryParse(v ?? '1') ?? 1,
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              decoration: const InputDecoration(
-                                labelText: 'Keperluan / Keterangan',
-                                border: OutlineInputBorder(),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.cancel_outlined,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                tooltip: 'Reject',
+                                onPressed: () async {
+                                  String reason = '';
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (c) {
+                                      return AlertDialog(
+                                        title: const Text(
+                                          'Tolak Barang Keluar',
+                                        ),
+                                        content: TextField(
+                                          decoration: const InputDecoration(
+                                            labelText: 'Alasan penolakan',
+                                            border: OutlineInputBorder(),
+                                          ),
+                                          onChanged: (v) => reason = v,
+                                          maxLines: 3,
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, false),
+                                            child: const Text('Batal'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.red.shade600,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            child: const Text('Tolak'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  if (confirmed != true) return;
+
+                                  final ok = await auth.rejectBarangKeluar(
+                                    e['id'] is int
+                                        ? e['id']
+                                        : int.parse(e['id'].toString()),
+                                    reason: reason.isEmpty ? null : reason,
+                                  );
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ok
+                                            ? 'Barang keluar berhasil ditolak'
+                                            : auth.lastError ??
+                                                  'Gagal menolak barang keluar',
+                                      ),
+                                      backgroundColor: ok
+                                          ? Colors.green.shade600
+                                          : Colors.red.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  if (ok) await _loadAll();
+                                },
                               ),
-                              onSaved: (v) => keterangan = v ?? '',
+                              const SizedBox(width: 4),
+                            ],
+                            PopupMenuButton<String>(
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: Colors.grey.shade600,
+                              ),
+                              onSelected: (v) async {
+                                if (v == 'view') return await _showDetail(e);
+                                if (v == 'edit')
+                                  return await _showEditDialog(e);
+                                if (v == 'delete') return await _deleteEntry(e);
+                                if (v == 'approve') {
+                                  final ok = await auth.approveBarangKeluar(
+                                    e['id'] is int
+                                        ? e['id']
+                                        : int.parse(e['id'].toString()),
+                                  );
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ok
+                                            ? 'Barang keluar berhasil di-approve'
+                                            : auth.lastError ??
+                                                  'Gagal approve barang keluar',
+                                      ),
+                                      backgroundColor: ok
+                                          ? Colors.green.shade600
+                                          : Colors.red.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  if (ok) await _loadAll();
+                                  return;
+                                }
+                                if (v == 'reject') {
+                                  String reason = '';
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (c) {
+                                      return AlertDialog(
+                                        title: const Text(
+                                          'Tolak Barang Keluar',
+                                        ),
+                                        content: TextField(
+                                          decoration: const InputDecoration(
+                                            labelText: 'Alasan penolakan',
+                                            border: OutlineInputBorder(),
+                                          ),
+                                          onChanged: (v) => reason = v,
+                                          maxLines: 3,
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, false),
+                                            child: const Text('Batal'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.red.shade600,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            child: const Text('Tolak'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  if (confirmed != true) return;
+
+                                  final ok = await auth.rejectBarangKeluar(
+                                    e['id'] is int
+                                        ? e['id']
+                                        : int.parse(e['id'].toString()),
+                                    reason: reason.isEmpty ? null : reason,
+                                  );
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ok
+                                            ? 'Barang keluar berhasil ditolak'
+                                            : auth.lastError ??
+                                                  'Gagal menolak barang keluar',
+                                      ),
+                                      backgroundColor: ok
+                                          ? Colors.green.shade600
+                                          : Colors.red.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  if (ok) await _loadAll();
+                                  return;
+                                }
+                                if (v == 'print') {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        'Cetak belum diimplementasikan',
+                                      ),
+                                      backgroundColor: Colors.orange.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                                if (v == 'export') {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        'Export laporan belum diimplementasikan',
+                                      ),
+                                      backgroundColor: Colors.orange.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              },
+                              itemBuilder: (c) {
+                                final List<PopupMenuEntry<String>> items = [
+                                  const PopupMenuItem(
+                                    value: 'view',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.visibility, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('Detail'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'print',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.print, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('Cetak'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'export',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.download, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('Export laporan'),
+                                      ],
+                                    ),
+                                  ),
+                                ];
+
+                                final isAdminOrManager =
+                                    auth.user?.hasRole('admin') == true ||
+                                    auth.user?.hasRole('manager') == true;
+
+                                if (isAdminOrManager) {
+                                  items.insertAll(1, [
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.edit, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('Edit'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.delete,
+                                            size: 20,
+                                            color: Colors.red,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text('Delete'),
+                                        ],
+                                      ),
+                                    ),
+                                  ]);
+
+                                  if (status == 'pending') {
+                                    items.insertAll(1, [
+                                      const PopupMenuItem(
+                                        value: 'approve',
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.check_circle_outline,
+                                              size: 20,
+                                              color: Colors.green,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text('Approve'),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'reject',
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.cancel_outlined,
+                                              size: 20,
+                                              color: Colors.red,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text('Reject'),
+                                          ],
+                                        ),
+                                      ),
+                                    ]);
+                                  }
+                                }
+
+                                return items;
+                              },
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(c, false),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.grey.shade600,
-                        ),
-                        child: const Text('Batal'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () async {
-                          if (!_formKey.currentState!.validate()) return;
-                          _formKey.currentState!.save();
-                          final auth = Provider.of<AuthService>(
-                            context,
-                            listen: false,
-                          );
-                          // use first item for demo
-                          final items = await auth.getItems();
-                          if (items.isEmpty) {
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                  'Tidak ada barang untuk dipilih',
-                                ),
-                                backgroundColor: Colors.orange.shade600,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                            Navigator.pop(c, false);
-                            return;
-                          }
-                          final payload = {
-                            'id_barang': items[0]['id'],
-                            'qty': qty,
-                            'keterangan': keterangan,
-                          };
-                          final ok = await auth.createBarangKeluar(payload);
-                          if (!mounted) return;
-                          Navigator.pop(c, ok);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal.shade700,
-                        ),
-                        child: const Text(
-                          'Simpan',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (created == true) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Barang keluar berhasil disimpan'),
-                      backgroundColor: Colors.green.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                  await _loadAll();
-                } else if (created == false) {
-                  final auth = Provider.of<AuthService>(context, listen: false);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(auth.lastError ?? 'Gagal menyimpan data'),
-                      backgroundColor: Colors.red.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              },
-              backgroundColor: Colors.teal.shade700,
-              foregroundColor: Colors.white,
-              child: const Icon(Icons.add),
-            )
-          : null,
+                    );
+                  }
+                },
+              ),
+            ),
+      floatingActionButton: null,
     );
   }
 }

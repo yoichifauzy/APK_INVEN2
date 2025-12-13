@@ -267,6 +267,14 @@ class RoleDrawer extends StatelessWidget {
           ),
           _buildMenuItem(
             context: context,
+            title: 'Input Barang Keluar',
+            icon: Icons.playlist_add,
+            routeName: '/operator/keluar-input',
+            isActive: _isCurrentRoute(context, '/operator/keluar-input'),
+            onTap: () => Navigator.pushNamed(context, '/operator/keluar-input'),
+          ),
+          _buildMenuItem(
+            context: context,
             title: 'Data Barang Masuk',
             icon: Icons.download,
             routeName: '/admin/masuk',
@@ -283,7 +291,7 @@ class RoleDrawer extends StatelessWidget {
           ),
           _buildMenuItem(
             context: context,
-            title: 'Riwayat Proses',
+            title: 'Riwayat Barang Keluar',
             icon: Icons.history,
             routeName: '/operator/riwayat',
             isActive: _isCurrentRoute(context, '/operator/riwayat'),

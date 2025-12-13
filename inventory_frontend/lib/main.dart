@@ -31,6 +31,7 @@ import 'screens/admin/users_page.dart';
 import 'screens/account_settings.dart';
 import 'screens/operator/process_keluar_page.dart';
 import 'screens/operator/profile_page.dart';
+import 'screens/operator/keluar_input_page.dart';
 import 'screens/manager/requests_all_page.dart';
 import 'screens/manager/laporan_page.dart';
 import 'screens/manager/items_page.dart';
@@ -42,10 +43,10 @@ void main() async {
   // configure baseUrl automatically depending on platform/emulator
   String getDefaultBaseUrl() {
     // Web uses 34.101.195.103
-    if (kIsWeb) return 'http://34.101.195.103';
+    if (kIsWeb) return 'http://127.0.0.1:8000';
     // Android (emulator and device) uses 34.101.195.103
     try {
-      if (Platform.isAndroid) return 'http://34.101.195.103';
+      if (Platform.isAndroid) return 'http://127.0.0.1:8000';
       // iOS simulator and desktop use localhost
       return 'http://127.0.0.1:8000';
     } catch (e) {
@@ -97,6 +98,7 @@ class MyApp extends StatelessWidget {
         '/manager/items': (context) => const ManagerItemsPage(),
         '/manager/approve': (context) => const ManagerApprovePage(),
         '/operator/process-keluar': (context) => const ProcessKeluarPage(),
+        '/operator/keluar-input': (context) => const OperatorKeluarInputPage(),
         '/operator/riwayat': (context) => const BarangKeluarPage(),
         '/operator/profile': (context) => const OperatorProfilePage(),
         // keep a single canonical dashboard route ('/dashboard'). Do not register '/operator' to avoid duplicates.
