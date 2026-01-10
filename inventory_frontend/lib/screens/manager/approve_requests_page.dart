@@ -131,6 +131,78 @@ class _ManagerApprovePageState extends State<ManagerApprovePage> {
     return '-';
   }
 
+  void _showDetail(Map r) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _namaBarang(r),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _detailRow('Peminta', _peminta(r)),
+                _detailRow('Qty', (r['qty'] ?? '-').toString()),
+                _detailRow(
+                  'Tanggal Request',
+                  (r['tanggal_request'] ?? '-').toString(),
+                ),
+                if (r['keterangan'] != null &&
+                    r['keterangan'].toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Keterangan',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(r['keterangan'].toString()),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(value, softWrap: true)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -257,11 +329,31 @@ class _ManagerApprovePageState extends State<ManagerApprovePage> {
                                     color: Colors.grey.shade600,
                                     fontSize: 12,
                                   ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
+                          const SizedBox(height: 4),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () => _showDetail(r),
+                            icon: Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.teal.shade700,
+                            ),
+                            label: Text(
+                              'Lihat detail',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.teal.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       trailing: Row(

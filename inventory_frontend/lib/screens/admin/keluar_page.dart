@@ -1,7 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-import '../../widgets/role_drawer.dart';
+
 import '../../services/auth_service.dart';
+import '../../widgets/role_drawer.dart';
 
 class BarangKeluarPage extends StatefulWidget {
   const BarangKeluarPage({Key? key}) : super(key: key);
@@ -28,6 +34,144 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
       _entries = entries;
       _loading = false;
     });
+  }
+
+  Future<void> _printReport({Map<String, dynamic>? single}) async {
+    final data = single != null ? [single] : _entries;
+    if (data.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Tidak ada data untuk dicetak'),
+          backgroundColor: Colors.orange.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final bytes = await _buildPdf(data);
+      await Printing.layoutPdf(onLayout: (format) async => bytes);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mencetak: $e'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportReport({Map<String, dynamic>? single}) async {
+    final data = single != null ? [single] : _entries;
+    if (data.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Tidak ada data untuk diexport'),
+          backgroundColor: Colors.orange.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final bytes = await _buildPdf(data);
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'laporan-barang-keluar.pdf',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal export: $e'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<Uint8List> _buildPdf(List<Map<String, dynamic>> data) async {
+    final doc = pw.Document();
+    final headers = [
+      'ID',
+      'Barang',
+      'Qty',
+      'Tanggal',
+      'Status',
+      'Operator',
+      'Keterangan',
+    ];
+
+    final rows = data.map<List<String>>((e) {
+      final tanggalRaw =
+          e['tanggal_keluar'] ?? e['tanggal'] ?? e['tanggal_keluar'];
+      String tanggal = '';
+      if (tanggalRaw != null) {
+        try {
+          tanggal = tanggalRaw.toString().split('T').first;
+        } catch (_) {
+          tanggal = tanggalRaw.toString();
+        }
+      }
+
+      return [
+        (e['id'] ?? '').toString(),
+        (e['nama_barang'] ?? e['barang']?['nama_barang'] ?? '-').toString(),
+        (e['qty'] ?? e['jumlah_keluar'] ?? '').toString(),
+        tanggal,
+        (e['status'] ?? '-').toString(),
+        (e['user_name'] ??
+                e['operator']?['nama'] ??
+                e['operator']?['name'] ??
+                '-')
+            .toString(),
+        (e['keterangan'] ?? '-').toString(),
+      ];
+    }).toList();
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        build: (context) => [
+          pw.Text(
+            'Laporan Barang Keluar',
+            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 8),
+          pw.Text('Tanggal cetak: ${DateTime.now()}'),
+          pw.SizedBox(height: 12),
+          pw.Table.fromTextArray(
+            headers: headers,
+            data: rows,
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+            ),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.teal),
+            cellStyle: const pw.TextStyle(fontSize: 10),
+            cellAlignment: pw.Alignment.centerLeft,
+            columnWidths: {
+              0: const pw.FlexColumnWidth(1),
+              1: const pw.FlexColumnWidth(2.2),
+              2: const pw.FlexColumnWidth(1),
+              3: const pw.FlexColumnWidth(1.2),
+              4: const pw.FlexColumnWidth(1.2),
+              5: const pw.FlexColumnWidth(1.8),
+              6: const pw.FlexColumnWidth(2.5),
+            },
+          ),
+        ],
+      ),
+    );
+
+    return doc.save();
   }
 
   Widget _statusChip(String? status) {
@@ -178,14 +322,7 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(c);
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Cetak belum diimplementasikan'),
-                  backgroundColor: Colors.orange.shade600,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              _printReport(single: e);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal.shade700,
@@ -733,28 +870,10 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                                     return;
                                   }
                                   if (v == 'print') {
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                          'Cetak belum diimplementasikan',
-                                        ),
-                                        backgroundColor: Colors.orange.shade600,
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
+                                    await _printReport(single: e);
                                   }
                                   if (v == 'export') {
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                          'Export laporan belum diimplementasikan',
-                                        ),
-                                        backgroundColor: Colors.orange.shade600,
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
+                                    await _exportReport(single: e);
                                   }
                                 },
                                 itemBuilder: (c) {
@@ -1177,28 +1296,10 @@ class _BarangKeluarPageState extends State<BarangKeluarPage> {
                                   return;
                                 }
                                 if (v == 'print') {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text(
-                                        'Cetak belum diimplementasikan',
-                                      ),
-                                      backgroundColor: Colors.orange.shade600,
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
+                                  await _printReport(single: e);
                                 }
                                 if (v == 'export') {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text(
-                                        'Export laporan belum diimplementasikan',
-                                      ),
-                                      backgroundColor: Colors.orange.shade600,
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
+                                  await _exportReport(single: e);
                                 }
                               },
                               itemBuilder: (c) {

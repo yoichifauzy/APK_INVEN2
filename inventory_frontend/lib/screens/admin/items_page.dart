@@ -318,6 +318,8 @@ class _ItemsPageState extends State<ItemsPage> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -414,23 +416,23 @@ class _ItemsPageState extends State<ItemsPage> {
                         children: [
                           const SizedBox(height: 4),
                           Text(
-                            'Supplier: ${it['supplier_name'] ?? '-'}',
-                            style: TextStyle(color: Colors.grey.shade600),
+                            'Supplier: ${it['supplier_name'] ?? '-'} • Kategori: ${it['category_name'] ?? '-'}',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: isMobile ? 12 : 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Kategori: ${it['category_name'] ?? '-'}',
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Lokasi: ${it['lokasi'] ?? '-'}',
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Harga: ${it['harga'] ?? '0'}',
-                            style: TextStyle(color: Colors.grey.shade600),
+                            'Lokasi: ${it['lokasi'] ?? '-'} • Harga: ${it['harga'] ?? '0'}',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: isMobile ? 12 : 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
